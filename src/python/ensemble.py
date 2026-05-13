@@ -86,38 +86,47 @@ class EnsembleModel:
         print(f"Model Accuracy on Test Set: {self.accuracy:.2%}")
 
     def generate_signals(self, df, feature_cols, calculate_shap=False, threshold=0.65):
-        """Generates signals and optionally SHAP values for each prediction."""
+        """Generates signals with Confidence Floors and Volatility Filters."""
         df_out = self._inject_features(df)
         X = df_out[feature_cols]
         probs = self.model.predict_proba(X)[:, 1]
         
         df_out['Signal_Prob'] = probs
         
-        # Dynamic Thresholding (If threshold == -1, use Top 5% percentile)
+        # 1. Institutional Filter: Volatility Floor
+        # Don't trade if ATR is in the bottom 20% (Spread erosion risk)
+        atr_threshold = df_out['ATR_14'].rolling(100).quantile(0.2)
+        vol_mask = df_out['ATR_14'] > atr_threshold
+        
+        # 2. Dynamic Thresholding with a Confidence Floor
         if threshold == -1:
-            entry_threshold = np.percentile(probs, 95)
-            exit_threshold = 0.40 # Exit if probability drops below 40%
-            print(f"Calibrated dynamic entry threshold: {entry_threshold:.3f}")
+            # We want the top 5%, but only if they are actually good (> 0.62)
+            entry_threshold = max(np.percentile(probs, 95), 0.62)
+            exit_threshold = 0.45 
+            # print(f"Calibrated dynamic entry threshold: {entry_threshold:.3f} (Floor: 0.62)")
         else:
             entry_threshold = threshold
             exit_threshold = 0.50
         
-        # Signal logic with Hysteresis (Position Inertia)
+        # 3. Signal logic with Hysteresis & Vol Filter
         signals = np.zeros(len(df_out))
         current_sig = 0
         
         for i in range(len(probs)):
             p = probs[i]
+            is_volatile = vol_mask.iloc[i]
+            
             if current_sig == 0:
-                if p > entry_threshold:
-                    current_sig = 1
-                elif p < (1 - entry_threshold):
-                    current_sig = -1
+                if is_volatile:
+                    if p > entry_threshold:
+                        current_sig = 1
+                    elif p < (1 - entry_threshold):
+                        current_sig = -1
             elif current_sig == 1:
-                if p < exit_threshold: # Exit long
+                if p < exit_threshold: 
                     current_sig = 0
             elif current_sig == -1:
-                if p > (1 - exit_threshold): # Exit short
+                if p > (1 - exit_threshold):
                     current_sig = 0
             signals[i] = current_sig
             
