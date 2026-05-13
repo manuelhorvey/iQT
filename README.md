@@ -5,199 +5,411 @@
 ![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-orange)
 ![License](https://img.shields.io/badge/license-Proprietary-red)
 
-A professional-grade quantitative trading pipeline for the Forex market, utilizing a hybrid Python-C++ architecture for research and low-latency execution.
+A professional-grade **quantitative trading research and execution framework** for the Forex market, built with a hybrid **Python + C++ architecture**.
+
+The system separates:
+
+- **Python Intelligence Layer** → research, feature engineering, machine learning, optimization, analytics
+- **C++ Execution Layer** → deterministic execution, stateful risk management, low-latency signal consumption
+
+Designed as a **research framework and execution testbed** for systematic FX strategies.
+
+---
 
 > [!WARNING]
-> **Research Prototype Note**: Current model accuracy is approximately 48-52%. This system is designed as a research framework and execution testbed. Do not route live capital without further alpha refinement.
+> **Experimental Research Framework**
+>
+> This repository is intended for quantitative research, backtesting, and execution infrastructure development.
+>
+> Historical performance is highly regime-dependent and does **not** guarantee future profitability.
+>
+> Live capital deployment is not recommended without:
+>
+> - broker integration hardening
+> - extended out-of-sample validation
+> - operational risk testing
+> - independent strategy verification
 
-## 📁 Project Structure
+---
+
+# 📁 Project Structure
 
 ```text
 institutional-quant-trader/
+├── configs/
+│   ├── strategy.yaml
+│   ├── execution.yaml
+│   └── risk_limits.yaml
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── features/
+│
+├── logs/
+│   ├── execution/
+│   ├── signals/
+│   ├── research/
+│   └── errors/
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── regression/
+│
+├── scripts/
+│   ├── bootstrap.sh
+│   ├── run_backtest.sh
+│   └── deploy_live.sh
+│
 ├── src/
-│   ├── python/           # Research, ML, and Bridge Logic
-│   │   ├── main.py       # Entry Point & CLI
-│   │   ├── ensemble.py   # XGBoost Ensemble with Hysteresis
-│   │   ├── optimization.py # Walk-Forward Optimization (WFO)
-│   │   ├── backtester.py # Path-Dependent Iterative Engine
-│   │   ├── allocation.py # HRP Portfolio Allocation
-│   │   ├── dashboard_generator.py # Research Report Engine
-│   │   ├── regime.py     # HMM Regime Detection
-│   │   ├── features.py   # Institutional Feature Engineering
-│   │   ├── risk_manager.py # Multi-Asset Risk & Cost Modeling
-│   │   └── bridge.py     # ZMQ Publisher (Hardened PUSH)
-│   └── cpp/              # Low-Latency Execution Engine
-│       ├── main.cpp      # C++ Entry Point
-│       ├── Order.h       # Data Primitives
-│       ├── PositionManager.cpp # Real-time Risk & State Persistence
-│       └── SignalSubscriber.hpp # Reliable PULL Subscriber
-├── dashboard/            
-│   ├── live/             # Live Telemetry (live_command_center.html)
-│   └── reports/          # Research & Performance Dashboards
-├── BRIDGE_SPECIFICATION.md # ZMQ Protocol Details
-└── README.md             # This file
-```
+│   ├── python/
+│   │   ├── main.py
+│   │   ├── ensemble.py
+│   │   ├── optimization.py
+│   │   ├── backtester.py
+│   │   ├── allocation.py
+│   │   ├── dashboard_generator.py
+│   │   ├── regime.py
+│   │   ├── features.py
+│   │   ├── risk_manager.py
+│   │   └── bridge.py
+│   │
+│   └── cpp/
+│       ├── main.cpp
+│       ├── Order.h
+│       ├── PositionManager.cpp
+│       ├── SignalSubscriber.hpp
+│       ├── ExecutionEngine.cpp
+│       └── PersistenceManager.cpp
+│
+├── dashboard/
+│   ├── live/
+│   │   └── live_command_center.html
+│   └── reports/
+│
+├── BRIDGE_SPECIFICATION.md
+└── README.md
+````
 
-## 🛡️ Institutional Hardening
+---
 
-This framework implements several "Real-World" constraints often missing from retail backtesters:
+# 🛡️ Institutional Hardening
 
-- **Path-Dependency**: Iterative execution engine modeling Stop-Loss (SL) and Take-Profit (TP) hits within a single bar.
-- **Tail Risk Modeling**: Simulated weekend gaps and news-driven slippage (0.5% hits).
-- **Realistic Friction**: Hardened spreads (1.5 - 2.5 pips) and volume-based commissions matching OANDA/IC Markets.
-- **Signal Hysteresis**: Logic to prevent trade churning by requiring stronger confirmation to flip or exit positions.
-- **State Persistence**: C++ engine persists positions to JSON to survive process crashes.
-- **Reliable Bridge**: Hardened ZMQ PUSH/PULL pattern with monotonic sequence tracking for zero-drop signal delivery.
+This framework includes several real-world constraints commonly missing from retail-grade backtesters.
 
-## 🛠 Prerequisites
+## Execution Realism
 
-### System Dependencies (Linux/Debian)
+- **Path Dependency**
+
+  - Iterative execution engine simulates SL/TP hits within a single bar.
+
+- **Realistic Friction Modeling**
+
+  - Variable spreads (1.5–2.5 pips)
+  - volume-based commissions
+  - broker cost assumptions aligned with FX venues
+
+- **Tail Risk Simulation**
+
+  - weekend gaps
+  - news-driven slippage shocks
+  - execution degradation scenarios
+
+- **Signal Hysteresis**
+
+  - prevents rapid trade flipping and churn
+  - stronger thresholds required for reversals/exits
+
+---
+
+## Reliability & Infrastructure
+
+- **Reliable Signal Bridge**
+
+  - ZeroMQ PUSH/PULL topology
+  - monotonic sequence tracking
+  - zero-drop signal enforcement
+
+- **State Persistence**
+
+  - positions persisted to JSON snapshots
+  - crash recovery and restart continuity
+
+- **Execution Determinism**
+
+  - timestamp-based event sequencing
+  - deterministic fills and PnL accounting
+
+- **Thread Safety**
+
+  - protected shared state for fills, PnL, and positions
+
+---
+
+## Risk Controls
+
+- Max portfolio exposure limits
+- Per-trade risk budgeting
+- Daily loss circuit breaker
+- Volatility targeting
+- Position concentration limits
+- Correlation-aware sizing
+- Cost-aware trade filtering
+
+---
+
+# 🛠 Prerequisites
+
+## System Dependencies (Linux/Debian)
 
 ```bash
 sudo apt-get update
 sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
 ```
 
-### Software Versions
+## Software Versions
 
-- **Python**: 3.10 or higher
-- **CMake**: 3.15 or higher
-- **C++ Compiler**: GCC 9+ or Clang 10+
-- **ZeroMQ**: 4.3.4+
+- Python 3.10+
+- CMake 3.15+
+- GCC 9+ or Clang 10+
+- ZeroMQ 4.3.4+
 
-## 🚀 Installation
+---
 
-1. **Python Setup**:
+# 🚀 Installation
 
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+## 1. Python Environment
 
-2. **C++ Build**:
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-   ```bash
-   mkdir build && cd build
-   cmake .. -DCMAKE_BUILD_TYPE=Release
-   make -j4
-   ```
+## 2. Build C++ Engine
 
-## 📈 Usage & CLI Specification
+```bash
+mkdir build
+cd build
 
-### 1. Walk-Forward Optimization (WFO)
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j4
+```
 
-Recommended for robust parameter selection and out-of-sample (OOS) validation.
+---
+
+# 📈 Usage
+
+## 1. Walk-Forward Optimization
+
+Recommended for parameter robustness and OOS validation.
 
 ```bash
 python src/python/main.py --optimize --period 5y
 ```
 
-### 2. Backtest Mode
+---
 
-Executes a historical simulation with path-dependent logic and stress testing.
+## 2. Historical Backtesting
+
+Runs path-dependent simulation with stress testing.
 
 ```bash
 python src/python/main.py --mode backtest --period 5y --stress_test
 ```
 
-- `--period`: History length (e.g., `1y`, `5y`, `max`).
-- `--stress_test`: Runs Monte Carlo (5000 paths) and Deflated Sharpe analysis.
+### Options
 
-### 3. Live Signal Mode
+- `--period`
 
-Generates real-time tickets and pushes them to the C++ engine.
+  - `1y`
+  - `5y`
+  - `max`
+
+- `--stress_test`
+
+  - Monte Carlo (5000 paths)
+  - Deflated Sharpe analysis
+  - drawdown stress scenarios
+
+---
+
+## 3. Live Signal Mode
+
+Launch execution engine:
 
 ```bash
-# Terminal 1: Launch C++ Engine
 ./build/src/cpp/QuantEngine
-
-# Terminal 2: Generate Signals
-python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
 ```
 
-## 🏗 System Architecture
+Generate live signals:
 
-The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a hardened ZeroMQ **PUSH/PULL** bridge on port **5555**.
+```bash
+python src/python/main.py \
+    --mode live \
+    --threshold 65 \
+    --tickers EURUSD=X,GBPUSD=X
+```
+
+---
+
+# 🔌 Broker Integrations
+
+Current:
+
+- Research-mode simulated execution
+
+Planned:
+
+- OANDA v20 API
+- Interactive Brokers
+- MetaTrader bridge
+- FIX gateway adapter
+
+---
+
+# 🏗 System Architecture
+
+The system is split into two major layers:
+
+- **Python Intelligence Layer**
+
+  - ML models
+  - regime detection
+  - optimization
+  - research analytics
+
+- **C++ Execution Layer**
+
+  - deterministic execution
+  - risk engine
+  - state persistence
+
+Communication occurs via hardened **ZeroMQ PUSH/PULL** on port **5555**.
 
 ```mermaid
 flowchart TD
-    %% Data Ingestion
-    subgraph Data [Data Layer]
-        direction LR
-        API([External APIs / CSV])
+    subgraph DataLayer["Data Layer"]
+        API[External APIs / CSV]
         DL[Data Loader]
         API --> DL
     end
 
-    %% Python Intelligence
-    subgraph Python [Python Intelligence Layer]
-        direction TB
-        subgraph Research [Research & Strategy]
-            FE[Feature Engineering]
-            RD[HMM Regime Detection]
-            ML[XGBoost Ensemble]
-            DL --> FE --> RD --> ML
-        end
+    subgraph PythonLayer["Python Intelligence Layer"]
+        FE[Feature Engineering]
+        RD[Regime Detection]
+        ML[Ensemble Model]
+        WFO[Walk-Forward Optimization]
+        ST[Stress Testing]
+        RM[Risk Manager]
+        HRP[HRP Allocation]
 
-        subgraph Validation [Optimization & Validation]
-            WFO[Walk-Forward Opt]
-            MC[Monte Carlo / Stress Test]
-            ML --> WFO --> MC
-        end
-
-        subgraph Management [Portfolio Management]
-            RM[Risk Manager]
-            HRP[HRP Allocation]
-            MC --> RM --> HRP
-        end
+        DL --> FE --> RD --> ML --> WFO --> ST --> RM --> HRP
     end
 
-    %% Bridge
-    subgraph Connectivity [Communication Bridge]
-        ZMQ[[ZMQ PUSH/PULL : 5555]]
+    subgraph Bridge["Communication Bridge"]
+        ZMQ[[ZeroMQ PUSH/PULL : 5555]]
     end
 
-    HRP --> |Live Signals| ZMQ
+    HRP --> ZMQ
 
-    %% C++ Execution
-    subgraph CPP [C++ Execution Engine]
-        direction TB
+    subgraph CPPLayer["C++ Execution Layer"]
         SUB[Signal Subscriber]
-        MDF[Market Data Feed]
         EE[Execution Engine]
         PM[Position Manager]
-        
-        ZMQ --> SUB
-        SUB & MDF --> EE
-        EE --> PM
-        PM --> |Real-time Tracking| PM
+        PS[Persistence Manager]
+
+        ZMQ --> SUB --> EE --> PM --> PS
     end
 
-    %% Reporting
-    subgraph Reports [Analytics & Dashboards]
-        direction LR
+    subgraph Dashboards["Analytics & Reporting"]
         DG[Dashboard Generator]
-        LCC[Live Command Center]
-        HRP -.-> |Backtest Logs| DG
-        PM -.-> |Trade Telemetry| LCC
+        LC[Live Command Center]
+
+        HRP --> DG
+        PM --> LC
     end
-
-    %% Styling
-    style Python fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    style CPP fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style Connectivity fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style Reports fill:#f1f8e9,stroke:#1b5e20,stroke-width:2px
-    style Data fill:#eceff1,stroke:#455a64,stroke-width:2px
-```
-
-## 🛑 Proper Shutdown
-
-To stop the C++ engine cleanly:
-
-```bash
-pkill -9 QuantEngine
 ```
 
 ---
-**Institutional Baseline Performance**: Sharpe 1.14 | Max DD -4.2% | Win Rate 54% (After Hardened Costs & Slippage Modeling).
+
+# 📊 Research Metrics
+
+Current research snapshots indicate:
+
+| Metric        | Range       |
+| ------------- | ----------- |
+| Sharpe Ratio  | 0.8 – 1.1   |
+| Max Drawdown  | -4% to -7%  |
+| Win Rate      | 51% – 55%   |
+| Profit Factor | 1.05 – 1.22 |
+
+These figures are:
+
+- strategy-dependent
+- regime-sensitive
+- subject to parameter drift and data selection effects
+
+---
+
+# 🛑 Proper Shutdown
+
+Graceful termination:
+
+```bash
+kill -SIGTERM $(pgrep QuantEngine)
+```
+
+Future support:
+
+```bash
+./build/src/cpp/QuantEngine --shutdown
+```
+
+---
+
+# 🗺 Roadmap
+
+## Completed
+
+- [x] Hybrid Python/C++ architecture
+- [x] Path-dependent backtester
+- [x] Regime detection
+- [x] Ensemble modeling
+- [x] Walk-forward optimization
+- [x] ZeroMQ signal bridge
+- [x] State persistence
+- [x] Live telemetry dashboard
+
+## In Progress
+
+- [ ] Broker abstraction layer
+- [ ] OANDA integration
+- [ ] Portfolio-level netting
+- [ ] Execution latency benchmarks
+
+## Planned
+
+- [ ] Order book simulation
+- [ ] FIX connectivity
+- [ ] Kubernetes deployment
+- [ ] Reinforcement execution policies
+
+---
+
+# ⚠ Disclaimer
+
+This software is provided strictly for:
+
+- research
+- educational use
+- systems experimentation
+
+It is **not investment advice** and is **not production-certified** for live financial deployment.
+
+Use at your own risk.
+
+---
+
+**iQT — Institutional Quant Research & Execution Infrastructure**
