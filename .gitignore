@@ -13,3 +13,5 @@ dashboard/reports/*
 models/*
 !models/.gitkeep
 .DS_Store
+engine_state.json
+engine.log
