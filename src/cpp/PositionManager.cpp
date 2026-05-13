@@ -47,7 +47,7 @@ void PositionManager::checkAutomatedExits(Position& pos) {
     bool shouldClose = false;
     std::string reason = "";
 
-    // 1. Stop Loss
+    // 1. Hard Stop Loss
     if (pos.side == Side::BUY && pos.currentPrice <= pos.stopLoss) {
         shouldClose = true; reason = "STOP_LOSS";
     } else if (pos.side == Side::SELL && pos.currentPrice >= pos.stopLoss) {
@@ -59,6 +59,28 @@ void PositionManager::checkAutomatedExits(Position& pos) {
         shouldClose = true; reason = "TAKE_PROFIT";
     } else if (pos.side == Side::SELL && pos.currentPrice <= pos.takeProfit) {
         shouldClose = true; reason = "TAKE_PROFIT";
+    }
+
+    // 3. Dynamic Trailing Stop (Institutional Protection)
+    // If we are up by 1 ATR equivalent (estimated from SL/Entry distance), trail it.
+    double slDistance = std::abs(pos.entryPrice - pos.stopLoss);
+    if (pos.side == Side::BUY) {
+        double currentProfit = pos.currentPrice - pos.entryPrice;
+        if (currentProfit > slDistance) {
+            double newStop = pos.highestPrice - slDistance;
+            if (newStop > pos.stopLoss) {
+                pos.stopLoss = newStop;
+                // std::cout << "[PositionManager] Trailing Stop moved to " << pos.stopLoss << " for " << pos.ticker << std::endl;
+            }
+        }
+    } else {
+        double currentProfit = pos.entryPrice - pos.currentPrice;
+        if (currentProfit > slDistance) {
+            double newStop = pos.lowestPrice + slDistance;
+            if (newStop < pos.stopLoss) {
+                pos.stopLoss = newStop;
+            }
+        }
     }
 
     if (shouldClose) {

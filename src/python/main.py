@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--mode', type=str, default='backtest', choices=['backtest', 'live'], help='Execution mode.')
     parser.add_argument('--threshold', type=int, default=65, help='Confidence threshold (50-100).')
     parser.add_argument('--stress_test', action='store_true', help='Run institutional stress testing suite.')
+    parser.add_argument('--optimize', action='store_true', help='Run Walk-Forward Optimization (WFO).')
     args = parser.parse_args()
 
     tickers = [t.strip() for t in args.tickers.split(',')]
@@ -59,7 +60,27 @@ def main():
     # 5. Initialize Risk Manager
     risk_manager = ForexRiskManager(risk_per_trade=args.risk_per_trade)
 
-    if args.mode == 'backtest':
+    if args.optimize:
+        import numpy as np
+        print("\n" + "=" * 50)
+        print("RUNNING MULTI-ASSET WALK-FORWARD OPTIMIZATION (WFO)")
+        print("=" * 50)
+        # Use full portfolio map for WFO
+        optimizer = WalkForwardOptimizer(processed_data, n_folds=5, risk_manager=risk_manager)
+        fold_reports, oos_returns = optimizer.run(feature_cols)
+        
+        print("\nWFO FOLD REPORT:")
+        print(f"{'Fold':<6} | {'IS Acc':<8} | {'OOS Acc':<8} | {'Sharpe':<8}")
+        print("-" * 40)
+        for fold in fold_reports:
+            sharpe = float(fold['OOS_Sharpe']) if fold['OOS_Sharpe'] is not None else 0.0
+            print(f"{fold['Fold']:<6} | {fold['IS_Acc']:<8} | {fold['OOS_Acc']:<8} | {sharpe:<8.2f}")
+        
+        # Use OOS returns for stress testing if requested
+        portfolio_res = pd.DataFrame({'Strategy_Return': oos_returns})
+        metrics = {'Walk-Forward Sharpe': (oos_returns.mean() / oos_returns.std() * np.sqrt(252)) if oos_returns.std() != 0 else 0}
+    
+    elif args.mode == 'backtest':
         # 6. Portfolio Backtest
         backtester = MultiAssetBacktester(signaled_data, risk_manager=risk_manager)
         portfolio_res = backtester.run()
