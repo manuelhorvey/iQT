@@ -11,9 +11,22 @@ class MultiAssetBacktester:
     def run(self):
         print(f"Running Institutional-Grade Forex Backtest for {len(self.data_map)} pairs...")
         
-        # 1. Calculate Correlation Scaling factor across the portfolio
-        all_signals = pd.concat([df['Signal'] for df in self.data_map.values()], axis=1)
-        corr_scaler = all_signals.apply(self.risk_manager.calculate_correlation_scaling, axis=1)
+        # 1. Calculate Rolling HRP Weights across the portfolio
+        returns_df = pd.DataFrame({ticker: df['Returns'] for ticker, df in self.data_map.items()}).fillna(0)
+        
+        # Pre-allocate HRP weights dataframe
+        hrp_weights_df = pd.DataFrame(index=returns_df.index, columns=returns_df.columns)
+        
+        print("Calculating rolling HRP allocations (this may take a moment)...")
+        from allocation import HRPAllocator
+        for i in range(252, len(returns_df)):
+            window = returns_df.iloc[i-252:i]
+            allocator = HRPAllocator(window)
+            hrp_weights_df.iloc[i] = allocator.get_weights()
+        
+        # Fill initial weights with equal weight
+        hrp_weights_df.iloc[:252] = 1.0 / len(self.data_map)
+        hrp_weights_df = hrp_weights_df.ffill()
         
         asset_pnl = []
         
@@ -24,12 +37,13 @@ class MultiAssetBacktester:
             # Base Signal (Shifted)
             df['Raw_Signal'] = df['Signal'].shift(1).fillna(0)
             
-            # Dynamic Lot Sizing with Correlation Penalty
-            # Units = (Risk / (ATR * Multiplier)) * Corr_Scaler
-            df['Lots'] = (self.initial_capital * self.risk_manager.risk_per_trade) / \
-                         (df['ATR_14'] * self.risk_manager.atr_multiplier * self.risk_manager.LOT_SIZE)
+            # Dynamic Lot Sizing with HRP Allocation
+            # Lots = (Base Sizing) * (HRP Weight * Num Assets)
+            df['Base_Lots'] = (self.initial_capital * self.risk_manager.risk_per_trade) / \
+                             (df['ATR_14'] * self.risk_manager.atr_multiplier * self.risk_manager.LOT_SIZE)
             
-            df['Lots'] = (df['Lots'] * df['Raw_Signal'].abs() * corr_scaler).round(2).fillna(0)
+            hrp_scale = hrp_weights_df[ticker] * len(self.data_map)
+            df['Lots'] = (df['Base_Lots'] * df['Raw_Signal'].abs() * hrp_scale).round(2).fillna(0)
             
             # 2. PnL Calculation
             df['Price_Diff'] = df['Close'] - df['Close'].shift(1)

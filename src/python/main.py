@@ -9,6 +9,7 @@ from optimization import WalkForwardOptimizer
 from risk_manager import ForexRiskManager
 from live_signals import LiveSignalEngine
 from bridge import SignalPublisher
+from stress_test import StressTester
 import pandas as pd
 
 def main():
@@ -18,6 +19,7 @@ def main():
     parser.add_argument('--risk_per_trade', type=float, default=0.005, help='Equity risk per trade (e.g., 0.005 for 0.5%).')
     parser.add_argument('--mode', type=str, default='backtest', choices=['backtest', 'live'], help='Execution mode.')
     parser.add_argument('--threshold', type=int, default=65, help='Confidence threshold (50-100).')
+    parser.add_argument('--stress_test', action='store_true', help='Run institutional stress testing suite.')
     args = parser.parse_args()
 
     tickers = [t.strip() for t in args.tickers.split(',')]
@@ -72,6 +74,28 @@ def main():
         print("=" * 50)
         for k, v in metrics.items():
             print(f"{k}: {v}")
+            
+        if args.stress_test:
+            print("\n" + "=" * 50)
+            print("INSTITUTIONAL STRESS TEST RESULTS")
+            print("=" * 50)
+            tester = StressTester(portfolio_res['Strategy_Return'])
+            
+            # Monte Carlo
+            mc_res = tester.run_monte_carlo(n_sims=5000)
+            print(f"MC Mean Equity: ${mc_res['mc_mean_equity']:,.2f}")
+            print(f"MC 5th Percentile (Value at Risk): ${mc_res['mc_5th_percentile']:,.2f}")
+            print(f"Prob of Portfolio Loss: {mc_res['prob_of_loss']:.1%}")
+            
+            # Deflated Sharpe
+            dsr_res = tester.calculate_deflated_sharpe(n_trials=100)
+            print(f"Observed Sharpe: {dsr_res['observed_sharpe']:.2f}")
+            print(f"DSR Significance Threshold: {dsr_res['dsr_threshold']:.2f}")
+            print(f"Statistically Significant: {dsr_res['is_statistically_significant']}")
+            
+            # VaR
+            var_95 = tester.calculate_var(0.95)
+            print(f"1-Day VaR (95%): ${abs(var_95):,.2f}")
     
     elif args.mode == 'live':
         # 6. Live Signal Generation
