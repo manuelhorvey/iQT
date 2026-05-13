@@ -1,0 +1,15 @@
+pandas
+numpy
+yfinance
+pandas-ta
+scikit-learn
+hmmlearn
+xgboost
+lightgbm
+plotly
+dash
+jupyter
+matplotlib
+seaborn
+pyarrow
+jinja2

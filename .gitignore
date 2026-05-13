@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+data/raw/*
+data/processed/*
+data/external/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+build/
+dashboard/reports/*
+!dashboard/reports/.gitkeep
+models/*
+!models/.gitkeep
+.DS_Store
