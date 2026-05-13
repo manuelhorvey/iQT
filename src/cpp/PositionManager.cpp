@@ -132,9 +132,8 @@ void PositionManager::checkAutomatedExits(Position& pos) {
     if (pos.side == Side::BUY) {
         double currentProfit = pos.currentPrice - pos.entryPrice;
         
-        // Break-Even Logic: If up by 1.0 ATR equivalent (estimated from SL)
-        // Move SL to entry
-        if (currentProfit > (entryToStopPips * 0.5) && pos.stopLoss < pos.entryPrice) {
+        // Break-Even Logic: If up by 1.5 ATR equivalent (estimated from SL)
+        if (currentProfit > (entryToStopPips * 0.75) && pos.stopLoss < pos.entryPrice) {
             pos.stopLoss = pos.entryPrice;
             std::cout << "[PositionManager] Break-Even: SL moved to entry for " << pos.ticker << std::endl;
             saveState();
@@ -152,7 +151,7 @@ void PositionManager::checkAutomatedExits(Position& pos) {
         double currentProfit = pos.entryPrice - pos.currentPrice;
 
         // Break-Even Logic
-        if (currentProfit > (entryToStopPips * 0.5) && pos.stopLoss > pos.entryPrice) {
+        if (currentProfit > (entryToStopPips * 0.75) && pos.stopLoss > pos.entryPrice) {
             pos.stopLoss = pos.entryPrice;
             std::cout << "[PositionManager] Break-Even: SL moved to entry for " << pos.ticker << std::endl;
             saveState();
