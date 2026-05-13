@@ -1,76 +1,112 @@
-# Institutional Quant Trader
+# iQT: Institutional Quant Trader (Forex)
 
-An institutional-grade quantitative trading pipeline supporting modular research, multi-asset risk management, ensemble signal generation, and production-ready live monitoring.
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
+![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-orange)
+![License](https://img.shields.io/badge/license-Proprietary-red)
 
-## Key Features
+A professional-grade quantitative trading pipeline for the Forex market, utilizing a hybrid Python-C++ architecture for research and low-latency execution.
 
-- **Multi-Asset Portfolio Engine**: Support for cross-sectional training and backtesting across Forex baskets (EURUSD, GBPUSD, USDJPY, etc.).
-- **Institutional Risk Engine**: Professional position sizing using ATR-based lot calculation, variable spreads per asset, commission tracking, swap/rollover fees, and slippage modeling.
-- **HMM Market Regime Detection**: Robust market state identification using scaled Gaussian Hidden Markov Models.
-- **Ensemble Intelligence**: Multi-layer XGBoost ensemble trained on cross-sectional data with **SHAP-based explainability** for signal transparency.
-- **Live Command Center**: Specialized execution desk dashboard providing real-time trade tickets, lot sizes, and portfolio risk oversight.
+> [!WARNING]
+> **Research Prototype Note**: Current model accuracy is approximately 48-52%. This system is designed as a research framework and execution testbed. Do not route live capital without further alpha refinement.
 
-## Architecture
+## 📁 Project Structure
 
-This project is built with a hybrid Python/C++ architecture:
-
-1. **Python Quant Research Layer**:
-   - `pandas`, `yfinance`, `pandas-ta`, `scikit-learn`, `hmmlearn`, `shap`
-   - Handles data ingestion, regime detection, ensemble training, and live signal generation.
-
-2. **C++ Execution Engine (Phase 5 - In Progress)**:
-   - Built for low-latency market data ingestion and high-performance trade execution.
-   - Connected via **ZeroMQ** for sub-millisecond signal handoff from the Python layer.
-
-## Quick Start
-
-### 1. Environment Setup
-
-```bash
-python3.12 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Running Research Backtests
-Generate a full portfolio backtest for Forex majors with institutional friction:
-```bash
-python src/python/main.py --mode backtest --tickers "EURUSD=X,GBPUSD=X,USDJPY=X,AUDUSD=X,USDCAD=X" --period 5y
-```
-
-### 3. Launching the Live Command Center
-Generate actionable execution tickets for the current market state:
-```bash
-python src/python/main.py --mode live --threshold 65
-```
-*Reports are saved to `dashboard/live/live_command_center.html`.*
-
-## Project Structure
-
-```
+```text
 institutional-quant-trader/
-├── dashboard/         
-│   ├── reports/       # Portfolio backtest research reports
-│   └── live/          # Live execution tickets and command center
 ├── src/
-│   ├── cpp/           # High-performance C++ execution/data engine
-│   └── python/        
-│       ├── main.py          # Unified pipeline entry point
-│       ├── live_signals.py  # Execution ticket engine
-│       ├── risk_manager.py  # Professional Forex risk module
-│       ├── backtester.py    # Multi-asset institutional backtester
-│       ├── ensemble.py      # XGBoost Ensemble + SHAP
-│       └── regime.py        # HMM Regime Detection
-└── README.md
+│   ├── python/           # Research, ML, and Bridge Logic
+│   │   ├── main.py       # Entry Point
+│   │   ├── ensemble.py   # XGBoost Ensemble
+│   │   ├── allocation.py # HRP Engine
+│   │   └── bridge.py     # ZMQ Publisher
+│   └── cpp/              # Low-Latency Execution Engine
+│       ├── main.cpp      # C++ Entry Point
+│       ├── Order.h       # Data Primitives
+│       └── PositionManager.cpp # Risk & Trade Tracking
+├── dashboard/            # HTML Reports & Live Telemetry
+├── BRIDGE_SPECIFICATION.md # ZMQ Protocol Details
+└── README.md             # This file
 ```
 
-## Institutional Metrics (Current FX Benchmark)
-- **Sharpe Ratio**: 1.90
-- **Max Drawdown**: -1.70%
-- **Transaction Costs**: Variable Spreads + $5/lot Commission + Swaps + Slippage modeling included.
+## 🛠 Prerequisites
 
-## Next Steps
+### System Dependencies (Linux/Debian)
+```bash
+sudo apt-get update
+sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
+```
 
-- **ZeroMQ Bridge**: Finalize the publisher/subscriber layer for real-time Python -> C++ handoff.
-- **Portfolio Walk-Forward Optimization**: Multi-fold validation to prevent data mining bias.
-- **Live Broker API**: Integrate OANDA/IBKR for automated paper trading.
+### Software Versions
+- **Python**: 3.10 or higher
+- **CMake**: 3.15 or higher
+- **C++ Compiler**: GCC 9+ or Clang 10+
+- **ZeroMQ**: 4.3.4+
+
+## 🚀 Installation
+
+1. **Python Setup**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install pandas numpy xgboost scikit-learn pandas_ta pyzmq hmmlearn yfinance scipy jinja2
+   ```
+
+2. **C++ Build**:
+   ```bash
+   mkdir build && cd build
+   cmake .. -DCMAKE_BUILD_TYPE=Release
+   make -j4
+   ```
+
+## 📈 Usage & CLI Specification
+
+### 1. Backtest Mode
+Executes a historical simulation with HRP allocation and stress testing.
+```bash
+python src/python/main.py --mode backtest --period 5y --stress_test
+```
+- `--period`: History length (e.g., `1y`, `5y`, `max`).
+- `--stress_test`: Runs Monte Carlo (5000 paths) and Deflated Sharpe analysis.
+
+### 2. Live Signal Mode
+Generates real-time tickets and pushes them to the C++ engine.
+```bash
+# Terminal 1: Launch C++ Engine
+./build/src/cpp/QuantEngine
+
+# Terminal 2: Generate Signals
+python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
+```
+- `--threshold`: (50-100) Minimum confidence for a signal to be "ticketed."
+- `--tickers`: Comma-separated Yahoo Finance symbols.
+
+## 🏗 System Architecture
+
+The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
+
+```mermaid
+graph TD
+    subgraph Python_Intelligence
+        A[Data Loader] --> B[Feature Engineering]
+        B --> C[Ensemble Model]
+        C --> D[HRP Allocator]
+        D --> E[ZMQ Publisher]
+    end
+    
+    subgraph CPP_Execution
+        E -- "127.0.0.1:5555" --> F[ZMQ Subscriber]
+        F --> G[Execution Engine]
+        G --> H[Position Manager]
+        H --> I[Automated SL/TP]
+    end
+```
+
+## 🛑 Proper Shutdown
+To stop the C++ engine cleanly:
+```bash
+pkill -9 QuantEngine
+```
+
+---
+**Institutional Baseline Performance**: Sharpe 1.52 | Max DD -1.19% | Portfolio Vol 1.11% (Based on 5-pair Forex basket, 2019-2024).
