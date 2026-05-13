@@ -125,11 +125,22 @@ void PositionManager::checkAutomatedExits(Position& pos) {
         shouldClose = true; reason = "TAKE_PROFIT";
     }
 
-    // 3. Dynamic Trailing Stop (Institutional Protection)
-    // If we are up by 1 ATR equivalent (estimated from SL/Entry distance), trail it.
+    // 3. Dynamic Trailing Stop & Break-Even (Institutional Protection)
     double slDistance = std::abs(pos.entryPrice - pos.stopLoss);
+    double entryToStopPips = std::abs(pos.entryPrice - pos.stopLoss); // Original risk
+    
     if (pos.side == Side::BUY) {
         double currentProfit = pos.currentPrice - pos.entryPrice;
+        
+        // Break-Even Logic: If up by 1.0 ATR equivalent (estimated from SL)
+        // Move SL to entry
+        if (currentProfit > (entryToStopPips * 0.5) && pos.stopLoss < pos.entryPrice) {
+            pos.stopLoss = pos.entryPrice;
+            std::cout << "[PositionManager] Break-Even: SL moved to entry for " << pos.ticker << std::endl;
+            saveState();
+        }
+
+        // Trailing Stop Logic
         if (currentProfit > slDistance) {
             double newStop = pos.highestPrice - slDistance;
             if (newStop > pos.stopLoss) {
@@ -139,6 +150,14 @@ void PositionManager::checkAutomatedExits(Position& pos) {
         }
     } else {
         double currentProfit = pos.entryPrice - pos.currentPrice;
+
+        // Break-Even Logic
+        if (currentProfit > (entryToStopPips * 0.5) && pos.stopLoss > pos.entryPrice) {
+            pos.stopLoss = pos.entryPrice;
+            std::cout << "[PositionManager] Break-Even: SL moved to entry for " << pos.ticker << std::endl;
+            saveState();
+        }
+
         if (currentProfit > slDistance) {
             double newStop = pos.lowestPrice + slDistance;
             if (newStop < pos.stopLoss) {

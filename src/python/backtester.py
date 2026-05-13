@@ -59,6 +59,12 @@ class MultiAssetBacktester:
                     hit_exit = False
                     exit_price = row['Close']
                     
+                    # --- Institutional: Break-Even Stop Logic ---
+                    # If profit >= 1.0 ATR, move SL to Entry
+                    profit_pips = (row['High'] - entry_price) if current_pos == 1 else (entry_price - row['Low'])
+                    if profit_pips > vol: # vol is ATR_14 at entry
+                        sl = entry_price # Risk-Free Trade
+                    
                     if current_pos == 1:
                         if row['Low'] < sl: exit_price = sl; hit_exit = True
                         elif row['High'] > tp: exit_price = tp; hit_exit = True
