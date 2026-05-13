@@ -265,7 +265,7 @@ class DashboardGenerator:
         </html>
         """
         
-    def generate_live_dashboard(self, tickets, summary):
+    def generate_live_dashboard(self, tickets, summary, tickers_count=0):
         print(f"Generating Live Execution Dashboard...")
         
         template = """
