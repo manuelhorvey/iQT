@@ -17,14 +17,55 @@ class ForexRiskManager:
         # Professional Forex Parameters (Hardened for Reality)
         self.LOT_SIZE = 100000
         
-        # Pair-Specific Cost Configuration (Pips) - OANDA Realistic
+        # Pair-Specific Cost Configuration (Pips) - Institutional Grade
         self.ASSET_SPECS = {
-            'EURUSD=X': {'spread': 1.5, 'comm': 7.0, 'swap': -0.5},
-            'GBPUSD=X': {'spread': 2.2, 'comm': 7.0, 'swap': -0.7},
-            'USDJPY=X': {'spread': 1.4, 'comm': 7.0, 'swap': -0.4},
-            'AUDUSD=X': {'spread': 1.8, 'comm': 7.0, 'swap': -0.6},
-            'USDCAD=X': {'spread': 1.9, 'comm': 7.0, 'swap': -0.6},
-            'DEFAULT':  {'spread': 2.5, 'comm': 10.0, 'swap': -1.2}
+            # Majors
+            'EURUSD=X': {'spread': 0.8, 'comm': 7.0, 'swap': -0.5},
+            'GBPUSD=X': {'spread': 1.2, 'comm': 7.0, 'swap': -0.7},
+            'USDJPY=X': {'spread': 0.7, 'comm': 7.0, 'swap': -0.4},
+            'AUDUSD=X': {'spread': 0.9, 'comm': 7.0, 'swap': -0.6},
+            'USDCAD=X': {'spread': 1.1, 'comm': 7.0, 'swap': -0.6},
+            'NZDUSD=X': {'spread': 1.2, 'comm': 7.0, 'swap': -0.5},
+            'USDCHF=X': {'spread': 1.3, 'comm': 7.0, 'swap': -0.8},
+            
+            # Euro Crosses
+            'EURGBP=X': {'spread': 1.4, 'comm': 7.0, 'swap': -0.6},
+            'EURJPY=X': {'spread': 1.2, 'comm': 7.0, 'swap': -0.5},
+            'EURAUD=X': {'spread': 1.8, 'comm': 7.0, 'swap': -0.8},
+            'EURCAD=X': {'spread': 1.7, 'comm': 7.0, 'swap': -0.7},
+            'EURCHF=X': {'spread': 1.6, 'comm': 7.0, 'swap': -0.9},
+            'EURNZD=X': {'spread': 2.4, 'comm': 7.0, 'swap': -1.1},
+            
+            # Pound Crosses
+            'GBPJPY=X': {'spread': 1.9, 'comm': 7.0, 'swap': -0.8},
+            'GBPAUD=X': {'spread': 2.5, 'comm': 7.0, 'swap': -1.2},
+            'GBPCAD=X': {'spread': 2.2, 'comm': 7.0, 'swap': -0.9},
+            'GBPCHF=X': {'spread': 2.1, 'comm': 7.0, 'swap': -1.1},
+            'GBPNZD=X': {'spread': 2.8, 'comm': 7.0, 'swap': -1.4},
+            
+            # Yen Crosses
+            'AUDJPY=X': {'spread': 1.3, 'comm': 7.0, 'swap': -0.6},
+            'CADJPY=X': {'spread': 1.4, 'comm': 7.0, 'swap': -0.5},
+            'CHFJPY=X': {'spread': 1.6, 'comm': 7.0, 'swap': -0.7},
+            'NZDJPY=X': {'spread': 1.7, 'comm': 7.0, 'swap': -0.6},
+            
+            # Other Minors
+            'AUDCAD=X': {'spread': 1.6, 'comm': 7.0, 'swap': -0.7},
+            'AUDCHF=X': {'spread': 1.5, 'comm': 7.0, 'swap': -0.8},
+            'AUDNZD=X': {'spread': 2.1, 'comm': 7.0, 'swap': -1.0},
+            'CADCHF=X': {'spread': 1.6, 'comm': 7.0, 'swap': -0.8},
+            'NZDCAD=X': {'spread': 1.9, 'comm': 7.0, 'swap': -0.7},
+            'NZDCHF=X': {'spread': 1.8, 'comm': 7.0, 'swap': -0.9},
+            
+            # Commodities & Exotics (Optional, but included for scale)
+            'XAUUSD=X': {'spread': 2.5, 'comm': 10.0, 'swap': -2.0}, # Gold
+            'USDMXN=X': {'spread': 35.0, 'comm': 10.0, 'swap': -5.0},
+            'USDTRY=X': {'spread': 80.0, 'comm': 15.0, 'swap': -15.0},
+            'USDZAR=X': {'spread': 60.0, 'comm': 12.0, 'swap': -8.0},
+            'USDSGD=X': {'spread': 2.0, 'comm': 7.0, 'swap': -1.0},
+            'USDHKD=X': {'spread': 4.0, 'comm': 7.0, 'swap': -0.5},
+            
+            'DEFAULT':  {'spread': 3.0, 'comm': 10.0, 'swap': -2.0}
         }
 
     def get_specs(self, ticker):
