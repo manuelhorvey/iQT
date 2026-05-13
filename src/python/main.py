@@ -135,7 +135,7 @@ def main():
         
         # 7. Generate Live Dashboard
         dashboard = DashboardGenerator(tickers[0], signaled_data[tickers[0]], {}, feature_cols=feature_cols)
-        dashboard.generate_live_dashboard(tickets, summary)
+        dashboard.generate_live_dashboard(tickets, summary, tickers_count=len(signaled_data))
         
         print(f"Active Signals: {summary['active_signals']}")
         print(f"Portfolio Volatility: {summary['portfolio_vol']}")

@@ -408,7 +408,7 @@ class DashboardGenerator:
             timestamp=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             tickets=tickets,
             summary=summary,
-            tickers_count=len(self.df.columns) # Approx
+            tickers_count=tickers_count or len(tickets)
         )
         
         output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dashboard", "live")
@@ -418,3 +418,4 @@ class DashboardGenerator:
             f.write(html)
         print(f"Live Dashboard saved to {os.path.abspath(report_path)}")
         return report_path
+turn report_path
