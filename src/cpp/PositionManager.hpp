@@ -42,6 +42,10 @@ public:
     double getEquity() const { return accountBalance + getPortfolioPnL(); }
     std::vector<Position> getActivePositions() const;
 
+    // Persistence
+    void saveState(const std::string& filename = "engine_state.json");
+    void loadState(const std::string& filename = "engine_state.json");
+
 private:
     std::unordered_map<std::string, Position> positions;
     double accountBalance;

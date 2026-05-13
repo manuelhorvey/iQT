@@ -1,5 +1,5 @@
 import argparse
-from data_loader import DataLoader
+from data_loader import DataManager
 from features import FeatureEngineer
 from regime import RegimeDetector
 from ensemble import EnsembleModel
@@ -32,9 +32,9 @@ def main():
     print("=" * 50)
 
     # 1. Load Data
-    # For live mode, we might want a shorter period but 5y is fine for training
-    loader = DataLoader(tickers=tickers, period=args.period)
-    data_map = loader.fetch_data()
+    provider_type = "yfinance" if args.mode == 'backtest' else "live"
+    manager = DataManager(tickers=tickers, provider_type=provider_type)
+    data_map = manager.get_data(period=args.period)
 
     # 2. Pre-process (Features + Regimes)
     processed_data = {}

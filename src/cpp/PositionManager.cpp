@@ -1,8 +1,14 @@
 #include "PositionManager.hpp"
 #include <iomanip>
 #include <cmath>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
-PositionManager::PositionManager(double balance) : accountBalance(balance) {}
+using json = nlohmann::json;
+
+PositionManager::PositionManager(double balance) : accountBalance(balance) {
+    loadState(); // Try to recover previous state on startup
+}
 
 bool PositionManager::openPosition(const Order& order, double fillPrice) {
     if (positions.find(order.ticker) != positions.end()) {
@@ -27,7 +33,65 @@ bool PositionManager::openPosition(const Order& order, double fillPrice) {
     positions[order.ticker] = pos;
     
     logTrade(order.ticker, "OPEN", fillPrice, 0.0, "Signal Execution");
+    saveState(); // Persist immediately
     return true;
+}
+
+void PositionManager::saveState(const std::string& filename) {
+    json j;
+    j["accountBalance"] = accountBalance;
+    j["positions"] = json::array();
+
+    for (auto const& [ticker, pos] : positions) {
+        json p;
+        p["ticker"] = pos.ticker;
+        p["side"] = (pos.side == Side::BUY) ? "BUY" : "SELL";
+        p["entryPrice"] = pos.entryPrice;
+        p["currentPrice"] = pos.currentPrice;
+        p["lots"] = pos.lots;
+        p["stopLoss"] = pos.stopLoss;
+        p["takeProfit"] = pos.takeProfit;
+        p["highestPrice"] = pos.highestPrice;
+        p["lowestPrice"] = pos.lowestPrice;
+        p["entryTime"] = std::chrono::system_clock::to_time_t(pos.entryTime);
+        j["positions"].push_back(p);
+    }
+
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << j.dump(4);
+        // std::cout << "[PositionManager] State persisted to " << filename << std::endl;
+    }
+}
+
+void PositionManager::loadState(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) return;
+
+    try {
+        json j;
+        file >> j;
+        accountBalance = j["accountBalance"];
+        
+        for (const auto& p : j["positions"]) {
+            Position pos;
+            pos.ticker = p["ticker"];
+            pos.side = (p["side"] == "BUY") ? Side::BUY : Side::SELL;
+            pos.entryPrice = p["entryPrice"];
+            pos.currentPrice = p["currentPrice"];
+            pos.lots = p["lots"];
+            pos.stopLoss = p["stopLoss"];
+            pos.takeProfit = p["takeProfit"];
+            pos.highestPrice = p["highestPrice"];
+            pos.lowestPrice = p["lowestPrice"];
+            pos.entryTime = std::chrono::system_clock::from_time_t(p["entryTime"]);
+            
+            positions[pos.ticker] = pos;
+        }
+        std::cout << "[PositionManager] Successfully recovered " << positions.size() << " positions from " << filename << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[PositionManager] Failed to load state: " << e.what() << std::endl;
+    }
 }
 
 void PositionManager::updateMarketPrice(const std::string& ticker, double price) {
@@ -70,7 +134,7 @@ void PositionManager::checkAutomatedExits(Position& pos) {
             double newStop = pos.highestPrice - slDistance;
             if (newStop > pos.stopLoss) {
                 pos.stopLoss = newStop;
-                // std::cout << "[PositionManager] Trailing Stop moved to " << pos.stopLoss << " for " << pos.ticker << std::endl;
+                saveState(); // Update persistent SL
             }
         }
     } else {
@@ -79,6 +143,7 @@ void PositionManager::checkAutomatedExits(Position& pos) {
             double newStop = pos.lowestPrice + slDistance;
             if (newStop < pos.stopLoss) {
                 pos.stopLoss = newStop;
+                saveState();
             }
         }
     }
@@ -97,7 +162,9 @@ void PositionManager::closePosition(const std::string& ticker, double exitPrice,
 
     logTrade(ticker, "CLOSE", exitPrice, pnl, reason);
     positions.erase(ticker);
+    saveState(); // Update state after closure
 }
+
 
 double PositionManager::calculatePnL(const Position& pos) const {
     double priceDiff = (pos.side == Side::BUY) ? (pos.currentPrice - pos.entryPrice) : (pos.entryPrice - pos.currentPrice);

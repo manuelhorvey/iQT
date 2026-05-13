@@ -16,11 +16,10 @@
 class SignalSubscriber {
 public:
     SignalSubscriber(ExecutionEngine* engine, const std::string& address = "tcp://127.0.0.1:5555") 
-        : engine(engine), context(1), socket(context, ZMQ_SUB) {
+        : engine(engine), context(1), socket(context, ZMQ_PULL), last_sequence_id(0) {
         
         socket.connect(address);
-        socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
-        std::cout << "[C++] Connected to Python Signal Bridge at " << address << std::flush << std::endl;
+        std::cout << "[C++] Connected to Hardened PUSH/PULL Bridge at " << address << std::endl;
     }
 
     void listen() {
@@ -29,13 +28,8 @@ public:
             auto res = socket.recv(message, zmq::recv_flags::none);
 
             if (res) {
-                std::string raw_str(static_cast<char*>(message.data()), message.size());
-                
-                size_t json_start = raw_str.find("{");
-                if (json_start != std::string::npos) {
-                    std::string json_str = raw_str.substr(json_start);
-                    process_signals(json_str);
-                }
+                std::string json_str(static_cast<char*>(message.data()), message.size());
+                process_signals(json_str);
             }
         }
     }
@@ -44,7 +38,17 @@ private:
     void process_signals(const std::string& json_str) {
         try {
             auto j = nlohmann::json::parse(json_str);
-            std::cout << "[C++] Received " << j["count"] << " tickets at " << j["timestamp"] << std::endl;
+            long current_seq = j["sequence_id"];
+            
+            // Gap Detection
+            if (last_sequence_id != 0 && current_seq != last_sequence_id + 1) {
+                std::cerr << "[C++] CRITICAL: Sequence Gap Detected! Last: " << last_sequence_id 
+                          << " Current: " << current_seq << ". " << (current_seq - last_sequence_id - 1) 
+                          << " packets potentially lost." << std::endl;
+            }
+            last_sequence_id = current_seq;
+
+            std::cout << "[C++] Received Packet #" << current_seq << " with " << j["count"] << " tickets" << std::endl;
             
             for (const auto& ticket : j["tickets"]) {
                 engine->on_signal(
@@ -64,4 +68,5 @@ private:
     ExecutionEngine* engine;
     zmq::context_t context;
     zmq::socket_t socket;
+    long last_sequence_id;
 };

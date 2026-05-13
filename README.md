@@ -25,11 +25,12 @@ institutional-quant-trader/
 │   │   ├── regime.py     # HMM Regime Detection
 │   │   ├── features.py   # Institutional Feature Engineering
 │   │   ├── risk_manager.py # Multi-Asset Risk & Cost Modeling
-│   │   └── bridge.py     # ZMQ Publisher
+│   │   └── bridge.py     # ZMQ Publisher (Hardened PUSH)
 │   └── cpp/              # Low-Latency Execution Engine
 │       ├── main.cpp      # C++ Entry Point
 │       ├── Order.h       # Data Primitives
-│       └── PositionManager.cpp # Real-time Risk & Trade Tracking
+│       ├── PositionManager.cpp # Real-time Risk & State Persistence
+│       └── SignalSubscriber.hpp # Reliable PULL Subscriber
 ├── dashboard/            
 │   ├── live/             # Live Telemetry (live_command_center.html)
 │   └── reports/          # Research & Performance Dashboards
@@ -45,6 +46,8 @@ This framework implements several "Real-World" constraints often missing from re
 - **Tail Risk Modeling**: Simulated weekend gaps and news-driven slippage (0.5% hits).
 - **Realistic Friction**: Hardened spreads (1.5 - 2.5 pips) and volume-based commissions matching OANDA/IC Markets.
 - **Signal Hysteresis**: Logic to prevent trade churning by requiring stronger confirmation to flip or exit positions.
+- **State Persistence**: C++ engine persists positions to JSON to survive process crashes.
+- **Reliable Bridge**: Hardened ZMQ PUSH/PULL pattern with monotonic sequence tracking for zero-drop signal delivery.
 
 ## 🛠 Prerequisites
 
@@ -115,24 +118,77 @@ python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
 
 ## 🏗 System Architecture
 
-The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
+The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a hardened ZeroMQ **PUSH/PULL** bridge on port **5555**.
 
 ```mermaid
-graph TD
-    subgraph Python_Intelligence
-        A[Data Loader] --> B[Feature Engineering]
-        B --> C[Regime Detection]
-        C --> D[Ensemble Model]
-        D --> E[Walk-Forward Opt]
-        E --> F[ZMQ Publisher]
+flowchart TD
+    %% Data Ingestion
+    subgraph Data [Data Layer]
+        direction LR
+        API([External APIs / CSV])
+        DL[Data Loader]
+        API --> DL
     end
 
-    subgraph CPP_Execution
-        F -- "127.0.0.1:5555" --> G[ZMQ Subscriber]
-        G --> H[Execution Engine]
-        H --> I[Position Manager]
-        I --> J[Automated SL/TP]
+    %% Python Intelligence
+    subgraph Python [Python Intelligence Layer]
+        direction TB
+        subgraph Research [Research & Strategy]
+            FE[Feature Engineering]
+            RD[HMM Regime Detection]
+            ML[XGBoost Ensemble]
+            DL --> FE --> RD --> ML
+        end
+
+        subgraph Validation [Optimization & Validation]
+            WFO[Walk-Forward Opt]
+            MC[Monte Carlo / Stress Test]
+            ML --> WFO --> MC
+        end
+
+        subgraph Management [Portfolio Management]
+            RM[Risk Manager]
+            HRP[HRP Allocation]
+            MC --> RM --> HRP
+        end
     end
+
+    %% Bridge
+    subgraph Connectivity [Communication Bridge]
+        ZMQ[[ZMQ PUSH/PULL : 5555]]
+    end
+
+    HRP --> |Live Signals| ZMQ
+
+    %% C++ Execution
+    subgraph CPP [C++ Execution Engine]
+        direction TB
+        SUB[Signal Subscriber]
+        MDF[Market Data Feed]
+        EE[Execution Engine]
+        PM[Position Manager]
+        
+        ZMQ --> SUB
+        SUB & MDF --> EE
+        EE --> PM
+        PM --> |Real-time Tracking| PM
+    end
+
+    %% Reporting
+    subgraph Reports [Analytics & Dashboards]
+        direction LR
+        DG[Dashboard Generator]
+        LCC[Live Command Center]
+        HRP -.-> |Backtest Logs| DG
+        PM -.-> |Trade Telemetry| LCC
+    end
+
+    %% Styling
+    style Python fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style CPP fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Connectivity fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Reports fill:#f1f8e9,stroke:#1b5e20,stroke-width:2px
+    style Data fill:#eceff1,stroke:#455a64,stroke-width:2px
 ```
 
 ## 🛑 Proper Shutdown

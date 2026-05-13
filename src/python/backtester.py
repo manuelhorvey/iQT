@@ -26,7 +26,10 @@ class MultiAssetBacktester:
         
         # Fill initial weights with equal weight
         hrp_weights_df.iloc[:252] = 1.0 / len(self.data_map)
-        hrp_weights_df = hrp_weights_df.ffill()
+        
+        # --- Institutional Stability: Weight Smoothing (EMA 20) ---
+        # Prevents rapid allocation flips that erode alpha via rebalancing costs
+        hrp_weights_df = hrp_weights_df.ffill().ewm(span=20).mean()
         
         asset_pnl = []
         

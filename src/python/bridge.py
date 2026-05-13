@@ -5,34 +5,35 @@ import time
 class SignalPublisher:
     """
     Broadcasts live execution tickets to the C++ engine via ZeroMQ.
-    Uses a PUB/SUB pattern for low-latency, one-to-many distribution.
+    Uses a PUSH/PULL pattern to ensure discrete signals are buffered
+    if the consumer is briefly busy, unlike PUB/SUB which is lossy.
     """
     def __init__(self, port=5555):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.PUB)
-        self.socket.setsockopt(zmq.LINGER, 1000) # Ensure messages are flushed before close
+        self.socket = self.context.socket(zmq.PUSH)
+        self.socket.setsockopt(zmq.SNDHWM, 1000) # High Water Mark
         self.socket.bind(f"tcp://127.0.0.1:{port}")
-        print(f"ZeroMQ Signal Bridge active on port {port}")
-        time.sleep(2.0) # Warm-up for Slow Joiners
+        self.sequence_id = 0
+        print(f"ZeroMQ Hardened Signal Bridge (PUSH) active on port {port}")
 
     def publish_tickets(self, tickets):
         """
-        Serializes and sends execution tickets.
-        Topic: 'trading.signals'
+        Serializes and sends execution tickets with a monotonic sequence ID.
         """
         if not tickets:
             return
 
+        self.sequence_id += 1
         message = {
             'timestamp': time.time(),
+            'sequence_id': self.sequence_id,
             'count': len(tickets),
             'tickets': tickets
         }
         
-        # Format: "Topic {JSON_DATA}"
-        payload = f"trading.signals {json.dumps(message)}"
+        payload = json.dumps(message)
         self.socket.send_string(payload)
-        print(f"Published {len(tickets)} tickets to C++ bridge.")
+        print(f"Sent Packet #{self.sequence_id} with {len(tickets)} tickets.")
 
     def close(self):
         self.socket.close()
