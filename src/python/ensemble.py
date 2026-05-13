@@ -94,14 +94,15 @@ class EnsembleModel:
         df_out['Signal_Prob'] = probs
         
         # 1. Institutional Filter: Volatility Floor
-        # Don't trade if ATR is in the bottom 20% (Spread erosion risk)
-        atr_threshold = df_out['ATR_14'].rolling(100).quantile(0.2)
+        # Don't trade if ATR is in the bottom 20% of the CURRENT segment
+        # Use a shorter window and ffill to ensure we get values in WFO
+        atr_threshold = df_out['ATR_14'].rolling(20, min_periods=1).quantile(0.2).fillna(df_out['ATR_14'].median())
         vol_mask = df_out['ATR_14'] > atr_threshold
         
         # 2. Dynamic Thresholding with a Confidence Floor
         if threshold == -1:
-            # We want the top 5%, but only if they are actually good (> 0.62)
-            entry_threshold = max(np.percentile(probs, 95), 0.62)
+            # Lower floor to 0.58 to match Forex market realities
+            entry_threshold = max(np.percentile(probs, 95), 0.58)
             exit_threshold = 0.45 
             # print(f"Calibrated dynamic entry threshold: {entry_threshold:.3f} (Floor: 0.62)")
         else:
