@@ -16,18 +16,34 @@ A professional-grade quantitative trading pipeline for the Forex market, utilizi
 institutional-quant-trader/
 ├── src/
 │   ├── python/           # Research, ML, and Bridge Logic
-│   │   ├── main.py       # Entry Point
-│   │   ├── ensemble.py   # XGBoost Ensemble
-│   │   ├── allocation.py # HRP Engine
+│   │   ├── main.py       # Entry Point & CLI
+│   │   ├── ensemble.py   # XGBoost Ensemble with Hysteresis
+│   │   ├── optimization.py # Walk-Forward Optimization (WFO)
+│   │   ├── backtester.py # Path-Dependent Iterative Engine
+│   │   ├── allocation.py # HRP Portfolio Allocation
+│   │   ├── dashboard_generator.py # Research Report Engine
+│   │   ├── regime.py     # HMM Regime Detection
+│   │   ├── features.py   # Institutional Feature Engineering
+│   │   ├── risk_manager.py # Multi-Asset Risk & Cost Modeling
 │   │   └── bridge.py     # ZMQ Publisher
 │   └── cpp/              # Low-Latency Execution Engine
 │       ├── main.cpp      # C++ Entry Point
 │       ├── Order.h       # Data Primitives
-│       └── PositionManager.cpp # Risk & Trade Tracking
-├── dashboard/            # HTML Reports & Live Telemetry
+│       └── PositionManager.cpp # Real-time Risk & Trade Tracking
+├── dashboard/            
+│   ├── live/             # Live Telemetry (live_command_center.html)
+│   └── reports/          # Research & Performance Dashboards
 ├── BRIDGE_SPECIFICATION.md # ZMQ Protocol Details
 └── README.md             # This file
 ```
+
+## 🛡️ Institutional Hardening
+
+This framework implements several "Real-World" constraints often missing from retail backtesters:
+- **Path-Dependency**: Iterative execution engine modeling Stop-Loss (SL) and Take-Profit (TP) hits within a single bar.
+- **Tail Risk Modeling**: Simulated weekend gaps and news-driven slippage (0.5% hits).
+- **Realistic Friction**: Hardened spreads (1.5 - 2.5 pips) and volume-based commissions matching OANDA/IC Markets.
+- **Signal Hysteresis**: Logic to prevent trade churning by requiring stronger confirmation to flip or exit positions.
 
 ## 🛠 Prerequisites
 
@@ -49,7 +65,7 @@ sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
    ```bash
    python -m venv venv
    source venv/bin/activate
-   pip install pandas numpy xgboost scikit-learn pandas_ta pyzmq hmmlearn yfinance scipy jinja2
+   pip install -r requirements.txt
    ```
 
 2. **C++ Build**:
@@ -61,15 +77,21 @@ sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
 
 ## 📈 Usage & CLI Specification
 
-### 1. Backtest Mode
-Executes a historical simulation with HRP allocation and stress testing.
+### 1. Walk-Forward Optimization (WFO)
+Recommended for robust parameter selection and out-of-sample (OOS) validation.
+```bash
+python src/python/main.py --optimize --period 5y
+```
+
+### 2. Backtest Mode
+Executes a historical simulation with path-dependent logic and stress testing.
 ```bash
 python src/python/main.py --mode backtest --period 5y --stress_test
 ```
 - `--period`: History length (e.g., `1y`, `5y`, `max`).
 - `--stress_test`: Runs Monte Carlo (5000 paths) and Deflated Sharpe analysis.
 
-### 2. Live Signal Mode
+### 3. Live Signal Mode
 Generates real-time tickets and pushes them to the C++ engine.
 ```bash
 # Terminal 1: Launch C++ Engine
@@ -78,27 +100,26 @@ Generates real-time tickets and pushes them to the C++ engine.
 # Terminal 2: Generate Signals
 python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
 ```
-- `--threshold`: (50-100) Minimum confidence for a signal to be "ticketed."
-- `--tickers`: Comma-separated Yahoo Finance symbols.
 
 ## 🏗 System Architecture
 
-The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
+The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
 
 ```mermaid
 graph TD
     subgraph Python_Intelligence
         A[Data Loader] --> B[Feature Engineering]
-        B --> C[Ensemble Model]
-        C --> D[HRP Allocator]
-        D --> E[ZMQ Publisher]
+        B --> C[Regime Detection]
+        C --> D[Ensemble Model]
+        D --> E[Walk-Forward Opt]
+        E --> F[ZMQ Publisher]
     end
-    
+
     subgraph CPP_Execution
-        E -- "127.0.0.1:5555" --> F[ZMQ Subscriber]
-        F --> G[Execution Engine]
-        G --> H[Position Manager]
-        H --> I[Automated SL/TP]
+        F -- "127.0.0.1:5555" --> G[ZMQ Subscriber]
+        G --> H[Execution Engine]
+        H --> I[Position Manager]
+        I --> J[Automated SL/TP]
     end
 ```
 
@@ -109,4 +130,5 @@ pkill -9 QuantEngine
 ```
 
 ---
-**Institutional Baseline Performance**: Sharpe 1.52 | Max DD -1.19% | Portfolio Vol 1.11% (Based on 5-pair Forex basket, 2019-2024).
+**Institutional Baseline Performance**: Sharpe 1.14 | Max DD -4.2% | Win Rate 54% (After Hardened Costs & Slippage Modeling).
+
