@@ -118,74 +118,21 @@ python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
 The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
 
 ```mermaid
-flowchart TD
-    %% Data Ingestion
-    subgraph Data [Data Layer]
-        direction LR
-        API([External APIs / CSV])
-        DL[Data Loader]
-        API --> DL
+graph TD
+    subgraph Python_Intelligence
+        A[Data Loader] --> B[Feature Engineering]
+        B --> C[Regime Detection]
+        C --> D[Ensemble Model]
+        D --> E[Walk-Forward Opt]
+        E --> F[ZMQ Publisher]
     end
 
-    %% Python Intelligence
-    subgraph Python [Python Intelligence Layer]
-        direction TB
-        subgraph Research [Research & Strategy]
-            FE[Feature Engineering]
-            RD[HMM Regime Detection]
-            ML[XGBoost Ensemble]
-            DL --> FE --> RD --> ML
-        end
-
-        subgraph Validation [Optimization & Validation]
-            WFO[Walk-Forward Opt]
-            MC[Monte Carlo / Stress Test]
-            ML --> WFO --> MC
-        end
-
-        subgraph Management [Portfolio Management]
-            RM[Risk Manager]
-            HRP[HRP Allocation]
-            MC --> RM --> HRP
-        end
+    subgraph CPP_Execution
+        F -- "127.0.0.1:5555" --> G[ZMQ Subscriber]
+        G --> H[Execution Engine]
+        H --> I[Position Manager]
+        I --> J[Automated SL/TP]
     end
-
-    %% Bridge
-    subgraph Connectivity [Communication Bridge]
-        ZMQ[[ZMQ PUB/SUB : 5555]]
-    end
-
-    HRP --> |Live Signals| ZMQ
-
-    %% C++ Execution
-    subgraph CPP [C++ Execution Engine]
-        direction TB
-        SUB[Signal Subscriber]
-        MDF[Market Data Feed]
-        EE[Execution Engine]
-        PM[Position Manager]
-        
-        ZMQ --> SUB
-        SUB & MDF --> EE
-        EE --> PM
-        PM --> |Real-time Tracking| PM
-    end
-
-    %% Reporting
-    subgraph Reports [Analytics & Dashboards]
-        direction LR
-        DG[Dashboard Generator]
-        LCC[Live Command Center]
-        HRP -.-> |Backtest Logs| DG
-        PM -.-> |Trade Telemetry| LCC
-    end
-
-    %% Styling
-    style Python fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    style CPP fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style Connectivity fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style Reports fill:#f1f8e9,stroke:#1b5e20,stroke-width:2px
-    style Data fill:#eceff1,stroke:#455a64,stroke-width:2px
 ```
 
 ## 🛑 Proper Shutdown
