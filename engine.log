@@ -5,20 +5,20 @@
 [C++] Engine ready. Waiting for signals from Python...
 [C++] Heartbeat: Listening for signals...
 [C++] DEBUG: Received signal payload
-[C++] Received 4 tickets at 1778665319.5746965
-[Engine] Processing signal for EURUSD=X...
-[Engine] Order for EURUSD=X FILLED
-  -> Lots: 0.38 | Filled: 1.17023
-[TRADE_EVENT] OPEN | EURUSD=X | Price: 1.17023 | PnL: $0.00 | Reason: Signal Execution
+[C++] Received 4 tickets at 1778666792.148141
 [Engine] Processing signal for GBPUSD=X...
 [Engine] Order for GBPUSD=X FILLED
-  -> Lots: 0.23 | Filled: 1.35
-[TRADE_EVENT] OPEN | GBPUSD=X | Price: 1.35105 | PnL: $0.00 | Reason: Signal Execution
+  -> Lots: 0.23 | Filled: 1.35194
+[TRADE_EVENT] OPEN | GBPUSD=X | Price: 1.35194 | PnL: $0.00 | Reason: Signal Execution
 [Engine] Processing signal for USDJPY=X...
 [Engine] Order for USDJPY=X FILLED
-  -> Lots: 0.19 | Filled: 157.88
-[TRADE_EVENT] OPEN | USDJPY=X | Price: 157.88252 | PnL: $0.00 | Reason: Signal Execution
+  -> Lots: 0.19 | Filled: 157.79
+[TRADE_EVENT] OPEN | USDJPY=X | Price: 157.79341 | PnL: $0.00 | Reason: Signal Execution
 [Engine] Processing signal for AUDUSD=X...
 [Engine] Order for AUDUSD=X FILLED
   -> Lots: 0.24 | Filled: 0.72
-[TRADE_EVENT] OPEN | AUDUSD=X | Price: 0.72411 | PnL: $0.00 | Reason: Signal Execution
+[TRADE_EVENT] OPEN | AUDUSD=X | Price: 0.72481 | PnL: $0.00 | Reason: Signal Execution
+[Engine] Processing signal for USDCAD=X...
+[Engine] Order for USDCAD=X FILLED
+  -> Lots: 1.01 | Filled: 1.37
+[TRADE_EVENT] OPEN | USDCAD=X | Price: 1.36955 | PnL: $0.00 | Reason: Signal Execution

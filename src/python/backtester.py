@@ -34,52 +34,84 @@ class MultiAssetBacktester:
             specs = self.risk_manager.get_specs(ticker)
             pip_val = self.risk_manager.get_pip_value(ticker)
             
-            # Base Signal (Shifted)
-            df['Raw_Signal'] = df['Signal'].shift(1).fillna(0)
-            
-            # Dynamic Lot Sizing with HRP Allocation
-            # Lots = (Base Sizing) * (HRP Weight * Num Assets)
+            # Pre-calculate Lots for the loop
             df['Base_Lots'] = (self.initial_capital * self.risk_manager.risk_per_trade) / \
                              (df['ATR_14'] * self.risk_manager.atr_multiplier * self.risk_manager.LOT_SIZE)
-            
             hrp_scale = hrp_weights_df[ticker] * len(self.data_map)
-            df['Lots'] = (df['Base_Lots'] * df['Raw_Signal'].abs() * hrp_scale).round(2).fillna(0)
+            df['Lots'] = (df['Base_Lots'] * hrp_scale).round(2).fillna(0)
             
-            # 2. PnL Calculation
-            df['Price_Diff'] = df['Close'] - df['Close'].shift(1)
-            df['Gross_PnL'] = df['Raw_Signal'] * df['Price_Diff'] * df['Lots'] * self.risk_manager.LOT_SIZE
+            # 2. PATH-DEPENDENT BACKTEST (Iterative)
+            net_pnl = np.zeros(len(df))
+            current_pos = 0 
+            entry_price = 0
+            sl, tp, lots, bars_held = 0, 0, 0, 0
             
-            # 3. TRANSACTION COSTS (FRICTION)
-            df['Trade_Event'] = df['Lots'].diff().abs() > 0
-            
-            # a) Commissions (Charged on every trade change)
-            df['Commission_Cost'] = (df['Lots'].diff().abs()) * specs['comm']
-            
-            # b) Variable Spreads (Charged on entry and exit)
-            df['Spread_Cost'] = (df['Lots'].diff().abs()) * (specs['spread'] * pip_val) * self.risk_manager.LOT_SIZE
-            
-            # c) Slippage Modeling (Random noise between 0.1 and 0.5 pips per trade)
-            np.random.seed(42)
-            slippage_pips = np.random.uniform(0.1, 0.5, size=len(df))
-            df['Slippage_Cost'] = (df['Lots'].diff().abs()) * (slippage_pips * pip_val) * self.risk_manager.LOT_SIZE
-            
-            # d) Swap / Rollover Fees (Daily cost for holding a position)
-            # Only charged if we hold a position (Signal != 0)
-            df['Swap_Cost'] = (df['Lots'] > 0).astype(int) * (abs(specs['swap']) * pip_val) * self.risk_manager.LOT_SIZE
-            
-            # 4. Net PnL
-            df['Net_PnL'] = df['Gross_PnL'] - df['Commission_Cost'] - df['Spread_Cost'] - df['Slippage_Cost'] - df['Swap_Cost']
-            
+            for i in range(1, len(df)):
+                row = df.iloc[i]
+                prev_signal = df.iloc[i-1]['Signal']
+                
+                # Exit Logic (Path Dependent)
+                if current_pos != 0:
+                    bars_held += 1
+                    hit_exit = False
+                    exit_price = row['Close']
+                    
+                    if current_pos == 1:
+                        if row['Low'] < sl: exit_price = sl; hit_exit = True
+                        elif row['High'] > tp: exit_price = tp; hit_exit = True
+                        elif prev_signal != 1 or bars_held >= 10: hit_exit = True
+                    elif current_pos == -1:
+                        if row['High'] > sl: exit_price = sl; hit_exit = True
+                        elif row['Low'] < tp: exit_price = tp; hit_exit = True
+                        elif prev_signal != -1 or bars_held >= 10: hit_exit = True
+                            
+                    if hit_exit:
+                        pnl = (exit_price - entry_price) * current_pos * lots * self.risk_manager.LOT_SIZE
+                        # Subtract Exit Costs (Spread + Slippage + Commission)
+                        cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \
+                               (specs['comm'] * lots) + \
+                               (0.5 * pip_val * self.risk_manager.LOT_SIZE * lots) # Slippage
+                        net_pnl[i] = pnl - cost
+                        current_pos = 0
+                        bars_held = 0
+                
+                # Entry Logic
+                if current_pos == 0 and prev_signal != 0:
+                    current_pos = int(prev_signal)
+                    entry_price = row['Open']
+                    lots = df.iloc[i-1]['Lots']
+                    bars_held = 0
+                    vol = row['ATR_14']
+                    sl = entry_price - (current_pos * 1.5 * vol)
+                    tp = entry_price + (current_pos * 3.0 * vol) # 2:1 Reward Risk
+                    
+                    # Subtract Entry Costs
+                    cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \
+                           (specs['comm'] * lots)
+                    net_pnl[i] -= cost
+                
+                # Daily Mark-to-Market (Optional for visualization, but net_pnl handles realized)
+                
+            df['Net_PnL'] = net_pnl
             asset_pnl.append(df['Net_PnL'].rename(ticker))
             
         # Combine all asset PnLs
         portfolio_pnl = pd.concat(asset_pnl, axis=1).fillna(0)
         self.portfolio_df = pd.DataFrame(index=portfolio_pnl.index)
         self.portfolio_df['Daily_PnL'] = portfolio_pnl.sum(axis=1)
-        self.portfolio_df['Strategy_Return'] = self.portfolio_df['Daily_PnL'] / self.initial_capital
+        
+        # --- Institutional Tail Risk Model ---
+        # Simulate Weekend Gaps & News Slippage (0.5% hit every 20 bars if active)
+        tail_risk = np.zeros(len(self.portfolio_df))
+        active_mask = (self.portfolio_df['Daily_PnL'] != 0)
+        tail_risk[active_mask & (np.arange(len(self.portfolio_df)) % 20 == 0)] = self.initial_capital * 0.005
+        self.portfolio_df['Tail_Risk_Cost'] = tail_risk
+        
+        self.portfolio_df['Net_Daily_PnL'] = self.portfolio_df['Daily_PnL'] - self.portfolio_df['Tail_Risk_Cost']
+        self.portfolio_df['Strategy_Return'] = self.portfolio_df['Net_Daily_PnL'] / self.initial_capital
         
         # Cumulative Equity
-        self.portfolio_df['Strategy_Equity'] = self.initial_capital + self.portfolio_df['Daily_PnL'].cumsum()
+        self.portfolio_df['Strategy_Equity'] = self.initial_capital + self.portfolio_df['Net_Daily_PnL'].cumsum()
         
         return self.portfolio_df
         
@@ -87,7 +119,7 @@ class MultiAssetBacktester:
         strat_returns = self.portfolio_df['Strategy_Return'].dropna()
         if len(strat_returns) == 0: return {"Error": "No returns"}
 
-        total_pnl = self.portfolio_df['Daily_PnL'].sum()
+        total_pnl = self.portfolio_df['Net_Daily_PnL'].sum()
         total_return = total_pnl / self.initial_capital
         
         annualized_return = strat_returns.mean() * 252

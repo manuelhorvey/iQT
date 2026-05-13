@@ -14,17 +14,17 @@ class ForexRiskManager:
         self.daily_loss_limit = daily_loss_limit
         self.initial_capital = initial_capital
         
-        # Professional Forex Parameters
+        # Professional Forex Parameters (Hardened for Reality)
         self.LOT_SIZE = 100000
         
-        # Pair-Specific Cost Configuration (Pips)
+        # Pair-Specific Cost Configuration (Pips) - OANDA Realistic
         self.ASSET_SPECS = {
-            'EURUSD=X': {'spread': 0.8, 'comm': 5.0, 'swap': -0.5},
-            'GBPUSD=X': {'spread': 1.2, 'comm': 5.0, 'swap': -0.7},
-            'USDJPY=X': {'spread': 0.7, 'comm': 5.0, 'swap': -0.4},
-            'AUDUSD=X': {'spread': 1.0, 'comm': 5.0, 'swap': -0.6},
-            'USDCAD=X': {'spread': 1.1, 'comm': 5.0, 'swap': -0.6},
-            'DEFAULT':  {'spread': 1.5, 'comm': 7.0, 'swap': -1.0}
+            'EURUSD=X': {'spread': 1.5, 'comm': 7.0, 'swap': -0.5},
+            'GBPUSD=X': {'spread': 2.2, 'comm': 7.0, 'swap': -0.7},
+            'USDJPY=X': {'spread': 1.4, 'comm': 7.0, 'swap': -0.4},
+            'AUDUSD=X': {'spread': 1.8, 'comm': 7.0, 'swap': -0.6},
+            'USDCAD=X': {'spread': 1.9, 'comm': 7.0, 'swap': -0.6},
+            'DEFAULT':  {'spread': 2.5, 'comm': 10.0, 'swap': -1.2}
         }
 
     def get_specs(self, ticker):

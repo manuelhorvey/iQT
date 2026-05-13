@@ -42,5 +42,9 @@ class FeatureEngineer:
         for l in [1, 2, 3]:
             self.df[f'Ret_Lag_{l}'] = self.df['Returns'].shift(l)
             
+        # 4. Volatility Momentum (ATR Slope)
+        self.df['ATR_Smooth'] = self.df['ATR_14'].rolling(window=5).mean()
+        self.df['ATR_Slope'] = self.df['ATR_Smooth'].diff().fillna(0)
+            
         self.df.dropna(inplace=True)
         return self.df

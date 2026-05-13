@@ -32,9 +32,9 @@ class EnsembleModel:
             else:
                 df_out[f'Regime_{r}'] = 0
                 
-        # 2. Balanced 5-day Directional Label (Only needed for training)
+        # 2. Balanced 10-day Directional Label (Longer Horizon to beat spreads)
         if 'Returns' in df_out.columns:
-            df_out['Target'] = np.where(df_out['Returns'].shift(-5).rolling(window=5).sum() > 0, 1, 0)
+            df_out['Target'] = np.where(df_out['Returns'].shift(-10).rolling(window=10).sum() > 0, 1, 0)
             
         return df_out
 
@@ -47,7 +47,7 @@ class EnsembleModel:
             'RSI_14_Z', 'ATR_14_Z', 'SMA_Dist_Z', 
             'Ret_Lag_1', 'Ret_Lag_2', 'Ret_Lag_3',
             'Regime_0', 'Regime_1', 'Regime_2',
-            'Support_20', 'Resistance_20', 'Regime_Change'
+            'Support_20', 'Resistance_20', 'ATR_Slope'
         ]
         
         available_cols = [c for c in feature_cols if c in df_out.columns]
@@ -93,18 +93,35 @@ class EnsembleModel:
         
         df_out['Signal_Prob'] = probs
         
-        # Dynamic Thresholding (If threshold == -1, use Top 10% percentile)
+        # Dynamic Thresholding (If threshold == -1, use Top 5% percentile)
         if threshold == -1:
-            threshold = np.percentile(probs, 90)
-            print(f"Calibrated dynamic threshold: {threshold:.3f}")
+            entry_threshold = np.percentile(probs, 95)
+            exit_threshold = 0.40 # Exit if probability drops below 40%
+            print(f"Calibrated dynamic entry threshold: {entry_threshold:.3f}")
+        else:
+            entry_threshold = threshold
+            exit_threshold = 0.50
         
-        # Signal logic (Dynamic Thresholds)
-        conditions = [
-            (df_out['Signal_Prob'] > threshold),
-            (df_out['Signal_Prob'] < (1 - threshold))
-        ]
-        choices = [1, -1]
-        df_out['Signal'] = np.select(conditions, choices, default=0)
+        # Signal logic with Hysteresis (Position Inertia)
+        signals = np.zeros(len(df_out))
+        current_sig = 0
+        
+        for i in range(len(probs)):
+            p = probs[i]
+            if current_sig == 0:
+                if p > entry_threshold:
+                    current_sig = 1
+                elif p < (1 - entry_threshold):
+                    current_sig = -1
+            elif current_sig == 1:
+                if p < exit_threshold: # Exit long
+                    current_sig = 0
+            elif current_sig == -1:
+                if p > (1 - exit_threshold): # Exit short
+                    current_sig = 0
+            signals[i] = current_sig
+            
+        df_out['Signal'] = signals
         
         if calculate_shap and self.explainer:
             shap_values = self.explainer.shap_values(X)

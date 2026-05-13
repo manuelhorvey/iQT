@@ -69,12 +69,11 @@ def main():
         optimizer = WalkForwardOptimizer(processed_data, n_folds=5, risk_manager=risk_manager)
         fold_reports, oos_returns = optimizer.run(feature_cols)
         
-        print("\nWFO FOLD REPORT:")
-        print(f"{'Fold':<6} | {'IS Acc':<8} | {'OOS Acc':<8} | {'Sharpe':<8}")
-        print("-" * 40)
+        print(f"{'Fold':<6} | {'IS Acc':<8} | {'OOS Acc':<8} | {'Signals':<8} | {'Sharpe':<8}")
+        print("-" * 55)
         for fold in fold_reports:
             sharpe = float(fold['OOS_Sharpe']) if fold['OOS_Sharpe'] is not None else 0.0
-            print(f"{fold['Fold']:<6} | {fold['IS_Acc']:<8} | {fold['OOS_Acc']:<8} | {sharpe:<8.2f}")
+            print(f"{fold['Fold']:<6} | {fold['IS_Acc']:<8} | {fold['OOS_Acc']:<8} | {fold['Signal_Count']:<8} | {sharpe:<8.2f}")
         
         # Use OOS returns for stress testing if requested
         portfolio_res = pd.DataFrame({'Strategy_Return': oos_returns})

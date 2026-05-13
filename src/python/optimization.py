@@ -52,14 +52,16 @@ class WalkForwardOptimizer:
             all_oos_X = []
             all_oos_y = []
             signaled_oos = {}
+            total_signals = 0
             for t, df in oos_data_map.items():
-                # Prepare features/target for diagnostic
                 X_o, y_o, _, f_cols = best_model.prepare_data(df)
                 all_oos_X.append(X_o)
                 all_oos_y.append(y_o)
                 
-                # Generate actual signals for backtesting (Dynamic Thresholding)
-                signaled_oos[t] = best_model.generate_signals(df, f_cols, threshold=-1)
+                # Generate actual signals
+                signaled = best_model.generate_signals(df, f_cols, threshold=-1)
+                total_signals += (signaled['Signal'] != 0).sum()
+                signaled_oos[t] = signaled
             
             X_oos_combined = pd.concat(all_oos_X)
             y_oos_combined = pd.concat(all_oos_y)
@@ -68,7 +70,11 @@ class WalkForwardOptimizer:
             oos_preds = best_model.model.predict(X_oos_combined)
             true_oos_acc = accuracy_score(y_oos_combined, oos_preds)
             
-            print(f"Fold {i+1} Class Balance: {y_is.mean():.1%} Buy | OOS Acc: {true_oos_acc:.2%}")
+            # Scarcity Metrics
+            days = len(oos_data_map[master_ticker])
+            sig_per_day = total_signals / days if days > 0 else 0
+            
+            print(f"Fold {i+1} Stats | OOS Acc: {true_oos_acc:.2%} | Total Signals: {total_signals} ({sig_per_day:.1f}/day)")
             
             backtester = MultiAssetBacktester(signaled_oos, risk_manager=self.risk_manager)
             bt_res = backtester.run()
@@ -78,6 +84,7 @@ class WalkForwardOptimizer:
                 'Fold': i + 1,
                 'IS_Acc': f"{best_acc:.2%}",
                 'OOS_Acc': f"{true_oos_acc:.2%}",
+                'Signal_Count': total_signals,
                 'OOS_Sharpe': metrics['Sharpe Ratio'],
                 'OOS_Return': metrics['Total Return']
             })
