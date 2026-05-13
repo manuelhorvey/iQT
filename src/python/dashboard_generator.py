@@ -366,6 +366,7 @@ class DashboardGenerator:
                             <th>Stop Loss</th>
                             <th>Take Profit</th>
                             <th>R:R</th>
+                            <th>HRP Scale</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -380,11 +381,12 @@ class DashboardGenerator:
                             <td class="mono" style="color: var(--bear);">${{ "%.5f"|format(t.stop_loss) }}</td>
                             <td class="mono" style="color: var(--bull);">${{ "%.5f"|format(t.take_profit) }}</td>
                             <td class="mono">{{ t.risk_reward }}</td>
+                            <td class="mono">{{ t.hrp_scale }}</td>
                         </tr>
                         {% endfor %}
                         {% if not tickets %}
                         <tr>
-                            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px;">No high-conviction signals at this time. Monitoring market...</td>
+                            <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px;">No high-conviction signals at this time. Monitoring market...</td>
                         </tr>
                         {% endif %}
                     </tbody>
@@ -394,7 +396,7 @@ class DashboardGenerator:
                     <h3 style="margin: 0 0 10px 0; font-size: 0.875rem; color: var(--accent);">EXECUTION ADVISORY</h3>
                     <p style="margin: 0; font-size: 0.8125rem; color: var(--text-muted);">
                         These signals use <strong>ATR-based stops</strong>. Slippage is modeled at 0.5 pips. 
-                        Correlation Scaling is <strong>ACTIVE</strong>: position sizes are automatically reduced if signals overlap in correlated pairs.
+                        <strong>Hierarchical Risk Parity (HRP)</strong> is ACTIVE: position sizes are automatically diversified based on the correlation structure of the Forex basket.
                     </p>
                 </div>
             </div>

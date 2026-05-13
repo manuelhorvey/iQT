@@ -43,16 +43,31 @@ class ForexRiskManager:
         sl_distance = atr * self.atr_multiplier
         if sl_distance == 0: return 0
             
-        # 3. Base Units
-        units = risk_amt_currency / sl_distance
+        # 3. Base Units adjusted for account currency (USD)
+        if ticker.startswith("USD") and not ticker.startswith("USDUSD"):
+            # For USD/XXX (e.g., USDJPY), 1 unit of price change = 1 unit of XXX.
+            # We need to convert the risk to account currency (USD).
+            # Units = (Risk_USD * Price) / SL_Distance_XXX
+            units = (risk_amt_currency * price) / sl_distance
+        else:
+            # For XXX/USD (e.g., EURUSD), 1 unit of price change = 1 unit of USD.
+            # Units = Risk_USD / SL_Distance_USD
+            units = risk_amt_currency / sl_distance
         
-        # 4. Convert to Lots
+        # 4. Convert to Lots (1 Lot = 100,000 units of base currency)
         lots = round(units / self.LOT_SIZE, 2)
         
         # 5. Apply Leverage Cap
-        notional = lots * self.LOT_SIZE * price
+        notional = lots * self.LOT_SIZE
+        if not ticker.startswith("USD"):
+             # For XXX/USD, notional in USD is Lots * LotSize * Price
+             notional *= price
+             
         if notional > (current_equity * self.max_leverage):
-            lots = round((current_equity * self.max_leverage) / (self.LOT_SIZE * price), 2)
+            if not ticker.startswith("USD"):
+                lots = round((current_equity * self.max_leverage) / (self.LOT_SIZE * price), 2)
+            else:
+                lots = round((current_equity * self.max_leverage) / self.LOT_SIZE, 2)
             
         return max(lots, 0)
 

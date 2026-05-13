@@ -98,6 +98,8 @@ def main():
         print(f"Total Exposure: {summary['total_exposure_lots']} Lots")
         print("\nLive Dashboard Ready!")
         
+        import time
+        time.sleep(1) # Final flush for ZMQ
         publisher.close()
 
     print("\nPipeline Complete!")

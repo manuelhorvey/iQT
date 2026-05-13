@@ -10,6 +10,7 @@ class SignalPublisher:
     def __init__(self, port=5555):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.LINGER, 1000) # Ensure messages are flushed before close
         self.socket.bind(f"tcp://*:{port}")
         print(f"ZeroMQ Signal Bridge active on port {port}")
 
@@ -27,9 +28,9 @@ class SignalPublisher:
             'tickets': tickets
         }
         
-        # Format: "Topic {JSON_DATA}"
-        payload = f"trading.signals {json.dumps(message)}"
-        self.socket.send_string(payload)
+        # Send as Multi-part message: [Topic, Payload]
+        self.socket.send_string("trading.signals", zmq.SNDMORE)
+        self.socket.send_string(json.dumps(message))
         print(f"Published {len(tickets)} tickets to C++ bridge.")
 
     def close(self):

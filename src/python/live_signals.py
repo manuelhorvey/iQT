@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from allocation import HRPAllocator
 
 class LiveSignalEngine:
     """
@@ -13,14 +14,14 @@ class LiveSignalEngine:
     def generate_tickets(self, signaled_data):
         """
         Processes the latest data point for each pair and generates 
-        execution instructions.
+        execution instructions using HRP allocation.
         """
+        # 1. Calculate HRP Weights
+        returns_df = pd.DataFrame({ticker: df['Returns'] for ticker, df in signaled_data.items()}).dropna()
+        allocator = HRPAllocator(returns_df)
+        hrp_weights = allocator.get_weights()
+        
         tickets = []
-        all_signals = pd.Series({ticker: df['Signal'].iloc[-1] for ticker, df in signaled_data.items()})
-        
-        # Calculate Global Portfolio Correlation Scaling
-        corr_scaler = self.risk_manager.calculate_correlation_scaling(all_signals)
-        
         for ticker, df in signaled_data.items():
             latest = df.iloc[-1]
             signal = latest['Signal']
@@ -31,11 +32,11 @@ class LiveSignalEngine:
             if signal == 0:
                 continue
                 
-            # 1. Calculate Lot Size with Correlation Penalty
+            # 2. Calculate Lot Size with HRP Scaling
             base_lots = self.risk_manager.calculate_lot_size(self.initial_capital, price, atr, ticker)
-            final_lots = round(base_lots * corr_scaler, 2)
+            final_lots = round(base_lots * (hrp_weights[ticker] * len(hrp_weights)), 2) # Normalized HRP
             
-            # 2. Calculate Execution Levels
+            # 3. Calculate Execution Levels
             sl_distance = atr * self.risk_manager.atr_multiplier
             pip_val = self.risk_manager.get_pip_value(ticker)
             
@@ -57,7 +58,7 @@ class LiveSignalEngine:
                 'take_profit': take_profit,
                 'sl_pips': round(sl_distance / pip_val, 1),
                 'risk_reward': "1:2",
-                'corr_penalty': f"{ (1-corr_scaler)*100 :.0f}%" if corr_scaler < 1.0 else "None"
+                'hrp_scale': f"{ (hrp_weights[ticker] * len(hrp_weights)) * 100 :.0f}%"
             })
             
         return tickets
