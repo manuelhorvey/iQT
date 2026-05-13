@@ -85,15 +85,16 @@ class MultiAssetBacktester:
                     lots = df.iloc[i-1]['Lots']
                     bars_held = 0
                     vol = row['ATR_14']
-                    sl = entry_price - (current_pos * 1.5 * vol)
                     
-                    # --- Institutional: Dynamic RR Logic ---
-                    # Swing vs Intraday decided by signal conviction and regime
+                    # --- Institutional: Adaptive Stop & Dynamic RR ---
                     prob = df.iloc[i-1]['Signal_Prob']
                     regime = df.iloc[i-1]['Regime_Label']
+                    
+                    sl_mult = self.risk_manager.calculate_adaptive_sl_multiplier(prob, regime)
                     dynamic_rr = self.risk_manager.calculate_dynamic_rr(prob, regime, ticker)
                     
-                    tp = entry_price + (current_pos * 1.5 * vol * dynamic_rr) 
+                    sl = entry_price - (current_pos * sl_mult * vol)
+                    tp = entry_price + (current_pos * sl_mult * vol * dynamic_rr) 
                     
                     # Subtract Entry Costs
                     cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \

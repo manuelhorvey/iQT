@@ -36,14 +36,13 @@ class LiveSignalEngine:
             base_lots = self.risk_manager.calculate_lot_size(self.initial_capital, price, atr, ticker)
             final_lots = round(base_lots * (hrp_weights[ticker] * len(hrp_weights)), 2) # Normalized HRP
             
-            # 3. Calculate Execution Levels
-            sl_distance = atr * self.risk_manager.atr_multiplier
-            pip_val = self.risk_manager.get_pip_value(ticker)
-            
-            # --- Institutional: Dynamic RR Logic ---
-            # Higher conviction/strong trends -> Higher RR (Swing)
-            # Lower conviction/choppy markets -> Lower RR (Intraday)
+            # --- Institutional: Adaptive Stop & Dynamic RR ---
+            # Higher conviction/strong trends -> Wider Stop (Swing) & Higher RR
+            sl_mult = self.risk_manager.calculate_adaptive_sl_multiplier(prob, latest['Regime_Label'])
             dynamic_rr = self.risk_manager.calculate_dynamic_rr(prob, latest['Regime_Label'], ticker)
+            
+            sl_distance = atr * sl_mult
+            pip_val = self.risk_manager.get_pip_value(ticker)
             
             stop_loss = price - sl_distance if signal == 1 else price + sl_distance
             take_profit = price + (sl_distance * dynamic_rr) if signal == 1 else price - (sl_distance * dynamic_rr)

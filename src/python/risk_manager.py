@@ -132,25 +132,27 @@ class ForexRiskManager:
         Institutional Dynamic RR Logic:
         - Higher Conviction (Prob > 0.7) -> 'Swing' Mode (3.0+ RR)
         - Lower Conviction (Prob < 0.6) -> 'Intraday' Mode (1.2 - 1.5 RR)
-        - Trending Regime -> Higher RR
-        - Mean Reverting/Sideways -> Lower RR
         """
         base_rr = 2.0
         
         # 1. Conviction Multiplier
-        if prob > 0.75: base_rr = 3.5  # High conviction swing
+        if prob > 0.75: base_rr = 3.5  
         elif prob > 0.65: base_rr = 2.5
-        elif prob < 0.55: base_rr = 1.2 # Scalping/Intraday
+        elif prob < 0.55: base_rr = 1.2 
         
-        # 2. Regime Adjustment
-        # In a Bearish regime, we might be more conservative with Longs (and vice-versa)
-        # But generally, 'Bullish/Bearish' implies trending, so we keep higher RR.
-        # If we had a 'Sideways' label, we would drop RR to 1.0.
-        
-        # 3. Asset Specific Caps
-        # High spread pairs (Exotics) need higher RR to be profitable
+        # 2. Asset Specific Caps
         specs = self.get_specs(ticker)
         if specs['spread'] > 5.0:
-            base_rr = max(base_rr, 3.0) # Need big moves for exotics
+            base_rr = max(base_rr, 3.0) 
             
         return round(base_rr, 2)
+
+    def calculate_adaptive_sl_multiplier(self, prob, regime_label):
+        """
+        Adjusts the 'breathing room' of a trade.
+        - High Conviction -> Wider Stop (2.5x) to catch the full trend.
+        - Low Conviction -> Tighter Stop (1.5x) to cut losses fast.
+        """
+        if prob > 0.75: return 2.5 # Swing
+        if prob < 0.55: return 1.5 # Intraday
+        return 2.0 # Standard
