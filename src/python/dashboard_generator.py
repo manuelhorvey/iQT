@@ -418,4 +418,3 @@ class DashboardGenerator:
             f.write(html)
         print(f"Live Dashboard saved to {os.path.abspath(report_path)}")
         return report_path
-turn report_path
