@@ -40,6 +40,7 @@ institutional-quant-trader/
 ## 🛡️ Institutional Hardening
 
 This framework implements several "Real-World" constraints often missing from retail backtesters:
+
 - **Path-Dependency**: Iterative execution engine modeling Stop-Loss (SL) and Take-Profit (TP) hits within a single bar.
 - **Tail Risk Modeling**: Simulated weekend gaps and news-driven slippage (0.5% hits).
 - **Realistic Friction**: Hardened spreads (1.5 - 2.5 pips) and volume-based commissions matching OANDA/IC Markets.
@@ -48,12 +49,14 @@ This framework implements several "Real-World" constraints often missing from re
 ## 🛠 Prerequisites
 
 ### System Dependencies (Linux/Debian)
+
 ```bash
 sudo apt-get update
 sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
 ```
 
 ### Software Versions
+
 - **Python**: 3.10 or higher
 - **CMake**: 3.15 or higher
 - **C++ Compiler**: GCC 9+ or Clang 10+
@@ -62,6 +65,7 @@ sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
 ## 🚀 Installation
 
 1. **Python Setup**:
+
    ```bash
    python -m venv venv
    source venv/bin/activate
@@ -69,6 +73,7 @@ sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
    ```
 
 2. **C++ Build**:
+
    ```bash
    mkdir build && cd build
    cmake .. -DCMAKE_BUILD_TYPE=Release
@@ -78,21 +83,28 @@ sudo apt-get install cmake g++ build-essential libzmq3-dev pkg-config
 ## 📈 Usage & CLI Specification
 
 ### 1. Walk-Forward Optimization (WFO)
+
 Recommended for robust parameter selection and out-of-sample (OOS) validation.
+
 ```bash
 python src/python/main.py --optimize --period 5y
 ```
 
 ### 2. Backtest Mode
+
 Executes a historical simulation with path-dependent logic and stress testing.
+
 ```bash
 python src/python/main.py --mode backtest --period 5y --stress_test
 ```
+
 - `--period`: History length (e.g., `1y`, `5y`, `max`).
 - `--stress_test`: Runs Monte Carlo (5000 paths) and Deflated Sharpe analysis.
 
 ### 3. Live Signal Mode
+
 Generates real-time tickets and pushes them to the C++ engine.
+
 ```bash
 # Terminal 1: Launch C++ Engine
 ./build/src/cpp/QuantEngine
@@ -106,29 +118,83 @@ python src/python/main.py --mode live --threshold 65 --tickers EURUSD=X,GBPUSD=X
 The pipeline is split into a **Python Intelligence Layer** (Heavy ML, Clustering, WFO) and a **C++ Execution Layer** (Deterministic Risk, Order Management), communicating over a ZeroMQ PUB/SUB bridge on port **5555**.
 
 ```mermaid
-graph TD
-    subgraph Python_Intelligence
-        A[Data Loader] --> B[Feature Engineering]
-        B --> C[Regime Detection]
-        C --> D[Ensemble Model]
-        D --> E[Walk-Forward Opt]
-        E --> F[ZMQ Publisher]
+flowchart TD
+    %% Data Ingestion
+    subgraph Data [Data Layer]
+        direction LR
+        API([External APIs / CSV])
+        DL[Data Loader]
+        API --> DL
     end
 
-    subgraph CPP_Execution
-        F -- "127.0.0.1:5555" --> G[ZMQ Subscriber]
-        G --> H[Execution Engine]
-        H --> I[Position Manager]
-        I --> J[Automated SL/TP]
+    %% Python Intelligence
+    subgraph Python [Python Intelligence Layer]
+        direction TB
+        subgraph Research [Research & Strategy]
+            FE[Feature Engineering]
+            RD[HMM Regime Detection]
+            ML[XGBoost Ensemble]
+            DL --> FE --> RD --> ML
+        end
+
+        subgraph Validation [Optimization & Validation]
+            WFO[Walk-Forward Opt]
+            MC[Monte Carlo / Stress Test]
+            ML --> WFO --> MC
+        end
+
+        subgraph Management [Portfolio Management]
+            RM[Risk Manager]
+            HRP[HRP Allocation]
+            MC --> RM --> HRP
+        end
     end
+
+    %% Bridge
+    subgraph Connectivity [Communication Bridge]
+        ZMQ[[ZMQ PUB/SUB : 5555]]
+    end
+
+    HRP --> |Live Signals| ZMQ
+
+    %% C++ Execution
+    subgraph CPP [C++ Execution Engine]
+        direction TB
+        SUB[Signal Subscriber]
+        MDF[Market Data Feed]
+        EE[Execution Engine]
+        PM[Position Manager]
+        
+        ZMQ --> SUB
+        SUB & MDF --> EE
+        EE --> PM
+        PM --> |Real-time Tracking| PM
+    end
+
+    %% Reporting
+    subgraph Reports [Analytics & Dashboards]
+        direction LR
+        DG[Dashboard Generator]
+        LCC[Live Command Center]
+        HRP -.-> |Backtest Logs| DG
+        PM -.-> |Trade Telemetry| LCC
+    end
+
+    %% Styling
+    style Python fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style CPP fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Connectivity fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Reports fill:#f1f8e9,stroke:#1b5e20,stroke-width:2px
+    style Data fill:#eceff1,stroke:#455a64,stroke-width:2px
 ```
 
 ## 🛑 Proper Shutdown
+
 To stop the C++ engine cleanly:
+
 ```bash
 pkill -9 QuantEngine
 ```
 
 ---
 **Institutional Baseline Performance**: Sharpe 1.14 | Max DD -4.2% | Win Rate 54% (After Hardened Costs & Slippage Modeling).
-
