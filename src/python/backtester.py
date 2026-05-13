@@ -86,7 +86,14 @@ class MultiAssetBacktester:
                     bars_held = 0
                     vol = row['ATR_14']
                     sl = entry_price - (current_pos * 1.5 * vol)
-                    tp = entry_price + (current_pos * 3.0 * vol) # 2:1 Reward Risk
+                    
+                    # --- Institutional: Dynamic RR Logic ---
+                    # Swing vs Intraday decided by signal conviction and regime
+                    prob = df.iloc[i-1]['Signal_Prob']
+                    regime = df.iloc[i-1]['Regime_Label']
+                    dynamic_rr = self.risk_manager.calculate_dynamic_rr(prob, regime, ticker)
+                    
+                    tp = entry_price + (current_pos * 1.5 * vol * dynamic_rr) 
                     
                     # Subtract Entry Costs
                     cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \

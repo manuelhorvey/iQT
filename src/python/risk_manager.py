@@ -126,3 +126,31 @@ class ForexRiskManager:
     def get_pip_value(self, ticker):
         if "JPY" in ticker: return 0.01
         return 0.0001
+
+    def calculate_dynamic_rr(self, prob, regime_label, ticker):
+        """
+        Institutional Dynamic RR Logic:
+        - Higher Conviction (Prob > 0.7) -> 'Swing' Mode (3.0+ RR)
+        - Lower Conviction (Prob < 0.6) -> 'Intraday' Mode (1.2 - 1.5 RR)
+        - Trending Regime -> Higher RR
+        - Mean Reverting/Sideways -> Lower RR
+        """
+        base_rr = 2.0
+        
+        # 1. Conviction Multiplier
+        if prob > 0.75: base_rr = 3.5  # High conviction swing
+        elif prob > 0.65: base_rr = 2.5
+        elif prob < 0.55: base_rr = 1.2 # Scalping/Intraday
+        
+        # 2. Regime Adjustment
+        # In a Bearish regime, we might be more conservative with Longs (and vice-versa)
+        # But generally, 'Bullish/Bearish' implies trending, so we keep higher RR.
+        # If we had a 'Sideways' label, we would drop RR to 1.0.
+        
+        # 3. Asset Specific Caps
+        # High spread pairs (Exotics) need higher RR to be profitable
+        specs = self.get_specs(ticker)
+        if specs['spread'] > 5.0:
+            base_rr = max(base_rr, 3.0) # Need big moves for exotics
+            
+        return round(base_rr, 2)

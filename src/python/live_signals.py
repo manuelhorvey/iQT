@@ -40,8 +40,13 @@ class LiveSignalEngine:
             sl_distance = atr * self.risk_manager.atr_multiplier
             pip_val = self.risk_manager.get_pip_value(ticker)
             
+            # --- Institutional: Dynamic RR Logic ---
+            # Higher conviction/strong trends -> Higher RR (Swing)
+            # Lower conviction/choppy markets -> Lower RR (Intraday)
+            dynamic_rr = self.risk_manager.calculate_dynamic_rr(prob, latest['Regime_Label'], ticker)
+            
             stop_loss = price - sl_distance if signal == 1 else price + sl_distance
-            take_profit = price + (sl_distance * 2) if signal == 1 else price - (sl_distance * 2)
+            take_profit = price + (sl_distance * dynamic_rr) if signal == 1 else price - (sl_distance * dynamic_rr)
             
             # 3. Conviction Label
             conviction = "STRONG" if prob > 0.7 or prob < 0.3 else "MODERATE"
@@ -57,7 +62,7 @@ class LiveSignalEngine:
                 'stop_loss': stop_loss,
                 'take_profit': take_profit,
                 'sl_pips': round(sl_distance / pip_val, 1),
-                'risk_reward': "1:2",
+                'risk_reward': f"1:{dynamic_rr}",
                 'hrp_scale': f"{ (hrp_weights[ticker] * len(hrp_weights)) * 100 :.0f}%"
             })
             
