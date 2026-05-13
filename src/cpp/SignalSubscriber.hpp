@@ -15,25 +15,27 @@
 
 class SignalSubscriber {
 public:
-    SignalSubscriber(ExecutionEngine* engine, const std::string& address = "tcp://localhost:5555") 
+    SignalSubscriber(ExecutionEngine* engine, const std::string& address = "tcp://127.0.0.1:5555") 
         : engine(engine), context(1), socket(context, ZMQ_SUB) {
         
         socket.connect(address);
-        socket.setsockopt(ZMQ_SUBSCRIBE, "trading.signals", 15);
-        std::cout << "[C++] Connected to Python Signal Bridge at " << address << std::endl;
+        socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        std::cout << "[C++] Connected to Python Signal Bridge at " << address << std::flush << std::endl;
     }
 
     void listen() {
         while (true) {
-            zmq::message_t topic;
-            zmq::message_t payload;
+            zmq::message_t message;
+            auto res = socket.recv(message, zmq::recv_flags::none);
 
-            auto res_topic = socket.recv(topic, zmq::recv_flags::none);
-            auto res_payload = socket.recv(payload, zmq::recv_flags::none);
-
-            if (res_payload) {
-                std::string json_str(static_cast<char*>(payload.data()), payload.size());
-                process_signals(json_str);
+            if (res) {
+                std::string raw_str(static_cast<char*>(message.data()), message.size());
+                
+                size_t json_start = raw_str.find("{");
+                if (json_start != std::string::npos) {
+                    std::string json_str = raw_str.substr(json_start);
+                    process_signals(json_str);
+                }
             }
         }
     }

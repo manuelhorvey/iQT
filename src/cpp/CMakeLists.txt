@@ -22,7 +22,7 @@ FetchContent_MakeAvailable(cppzmq)
 # 3. Handle libzmq (System library)
 pkg_check_modules(ZMQ REQUIRED libzmq)
 
-add_executable(QuantEngine main.cpp)
+add_executable(QuantEngine main.cpp PositionManager.cpp)
 
 target_include_directories(QuantEngine PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}

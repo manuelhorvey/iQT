@@ -1,5 +1,12 @@
 ==========================================
  INSTITUTIONAL FOREX EXECUTION ENGINE 
 ==========================================
-[C++] Connected to Python Signal Bridge at tcp://localhost:5555
+[C++] Connected to Python Signal Bridge at tcp://127.0.0.1:5555
 [C++] Engine ready. Waiting for signals from Python...
+[C++] Heartbeat: Listening for signals...
+[C++] DEBUG: Received signal payload
+[C++] Received 1 tickets at 1778663757.5647564
+[Engine] Processing signal for USDCAD=X...
+[Engine] Order for USDCAD=X FILLED
+  -> Lots: 1.01 | Filled: 1.37031
+[TRADE_EVENT] OPEN | USDCAD=X | Price: 1.37031 | PnL: $0.00 | Reason: Signal Execution

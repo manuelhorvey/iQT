@@ -11,8 +11,9 @@ class SignalPublisher:
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
         self.socket.setsockopt(zmq.LINGER, 1000) # Ensure messages are flushed before close
-        self.socket.bind(f"tcp://*:{port}")
+        self.socket.bind(f"tcp://127.0.0.1:{port}")
         print(f"ZeroMQ Signal Bridge active on port {port}")
+        time.sleep(2.0) # Warm-up for Slow Joiners
 
     def publish_tickets(self, tickets):
         """
@@ -28,9 +29,9 @@ class SignalPublisher:
             'tickets': tickets
         }
         
-        # Send as Multi-part message: [Topic, Payload]
-        self.socket.send_string("trading.signals", zmq.SNDMORE)
-        self.socket.send_string(json.dumps(message))
+        # Format: "Topic {JSON_DATA}"
+        payload = f"trading.signals {json.dumps(message)}"
+        self.socket.send_string(payload)
         print(f"Published {len(tickets)} tickets to C++ bridge.")
 
     def close(self):
