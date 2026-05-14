@@ -39,7 +39,7 @@ class MultiAssetBacktester:
             
             # Pre-calculate Lots for the loop
             df['Base_Lots'] = (self.initial_capital * self.risk_manager.risk_per_trade) / \
-                             (df['ATR_14'] * self.risk_manager.atr_multiplier * self.risk_manager.LOT_SIZE)
+                             (df['ATR_14'] * self.risk_manager.atr_multiplier * specs['lot_size'])
             hrp_scale = hrp_weights_df[ticker] * len(self.data_map)
             df['Lots'] = (df['Base_Lots'] * hrp_scale).round(2).fillna(0)
             
@@ -63,7 +63,7 @@ class MultiAssetBacktester:
                     # Only move to BE if profit >= 1.5 ATR (matching tightest stop)
                     # Adjust SL to Entry + Costs to be truly net-zero
                     if lots > 0:
-                        cost_in_pips = specs['spread'] + (specs['comm'] / (pip_val * self.risk_manager.LOT_SIZE * lots))
+                        cost_in_pips = specs['spread'] + (specs['comm'] / (pip_val * specs['lot_size'] * lots))
                         
                         profit_pips = (row['High'] - entry_price) if current_pos == 1 else (entry_price - row['Low'])
                         if profit_pips > (vol * 1.5): 
@@ -79,11 +79,11 @@ class MultiAssetBacktester:
                         elif prev_signal != -1 or bars_held >= 10: hit_exit = True
                             
                     if hit_exit:
-                        pnl = (exit_price - entry_price) * current_pos * lots * self.risk_manager.LOT_SIZE
+                        pnl = (exit_price - entry_price) * current_pos * lots * specs['lot_size']
                         # Subtract Exit Costs (Spread + Slippage + Commission)
-                        cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \
+                        cost = (specs['spread'] * pip_val * specs['lot_size'] * lots) + \
                                (specs['comm'] * lots) + \
-                               (0.5 * pip_val * self.risk_manager.LOT_SIZE * lots) # Slippage
+                               (0.5 * pip_val * specs['lot_size'] * lots) # Slippage
                         net_pnl[i] = pnl - cost
                         current_pos = 0
                         bars_held = 0
@@ -107,7 +107,7 @@ class MultiAssetBacktester:
                     tp = entry_price + (current_pos * sl_mult * vol * dynamic_rr) 
                     
                     # Subtract Entry Costs
-                    cost = (specs['spread'] * pip_val * self.risk_manager.LOT_SIZE * lots) + \
+                    cost = (specs['spread'] * pip_val * specs['lot_size'] * lots) + \
                            (specs['comm'] * lots)
                     net_pnl[i] -= cost
                 
