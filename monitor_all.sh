@@ -10,7 +10,7 @@ TICKERS="EURUSD=X,GBPUSD=X,USDJPY=X,AUDUSD=X,USDCAD=X,NZDUSD=X,USDCHF=X,\
 EURGBP=X,EURJPY=X,GBPJPY=X,AUDJPY=X,CHFJPY=X,EURCHF=X,EURAUD=X,\
 GBPAUD=X,AUDCAD=X,NZDJPY=X,EURCAD=X,GBPCAD=X,AUDNZD=X,CADJPY=X,\
 EURNZD=X,GBPNZD=X,GBPCHF=X,CADCHF=X,NZDCAD=X,NZDCHF=X,AUDCHF=X,\
-USDSGD=X,USDHKD=X,USDMXN=X,USDZAR=X,USDTRY=X"
+GC=F"
 
 # 2. Setup Environment
 source venv/bin/activate
@@ -19,7 +19,7 @@ source venv/bin/activate
 echo "=============================================================================="
 echo " LAUNCHING FULL PORTFOLIO MONITOR (34 ASSETS) "
 echo "=============================================================================="
-python src/python/main.py --mode live --threshold 55 --tickers "$TICKERS"
+python src/intelligence/main.py --mode live --threshold 55 --tickers "$TICKERS"
 
 echo "=============================================================================="
 echo " Monitor Session Complete. Check dashboard/live/ for telemetry. "
