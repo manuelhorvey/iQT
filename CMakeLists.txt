@@ -4,5 +4,5 @@ project(InstitutionalQuantTrader VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Add subdirectories for our C++ modules
-add_subdirectory(src/cpp)
+# Add subdirectories for our execution engine (C++)
+add_subdirectory(src/execution)

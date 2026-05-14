@@ -4,9 +4,10 @@ import xgboost as xgb
 import shap
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from typing import Dict, List, Tuple, Optional
 
 class EnsembleModel:
-    def __init__(self, params=None):
+    def __init__(self, params: Optional[Dict] = None) -> None:
         default_params = {
             'n_estimators': 100,
             'learning_rate': 0.05,
@@ -18,10 +19,10 @@ class EnsembleModel:
             default_params.update(params)
         
         self.model = xgb.XGBClassifier(**default_params)
-        self.explainer = None
-        self.accuracy = 0.0
+        self.explainer: Optional[shap.TreeExplainer] = None
+        self.accuracy: float = 0.0
 
-    def _inject_features(self, df):
+    def _inject_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Standardizes feature injection for both training and inference."""
         df_out = df.copy()
         
@@ -38,7 +39,7 @@ class EnsembleModel:
             
         return df_out
 
-    def prepare_data(self, df):
+    def prepare_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, List[str]]:
         """Prepare features with One-Hot Regimes and Institutional Alpha."""
         df_out = self._inject_features(df)
         
@@ -56,7 +57,7 @@ class EnsembleModel:
         y = df_train['Target']
         return X, y, df_out, available_cols
 
-    def prepare_multi_asset_data(self, data_map):
+    def prepare_multi_asset_data(self, data_map: Dict[str, pd.DataFrame]) -> Tuple[pd.DataFrame, pd.Series, Optional[List[str]]]:
         """Combines data from multiple assets into one training set."""
         all_X = []
         all_y = []
@@ -72,7 +73,7 @@ class EnsembleModel:
         combined_y = pd.concat(all_y)
         return combined_X, combined_y, feature_cols
 
-    def train(self, X, y):
+    def train(self, X: pd.DataFrame, y: pd.Series) -> None:
         print("Training Ensemble Model (XGBoost)...")
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
         
@@ -85,7 +86,8 @@ class EnsembleModel:
         self.accuracy = accuracy_score(y_test, preds)
         print(f"Model Accuracy on Test Set: {self.accuracy:.2%}")
 
-    def generate_signals(self, df, feature_cols, calculate_shap=False, threshold=0.65):
+    def generate_signals(self, df: pd.DataFrame, feature_cols: List[str], 
+                        calculate_shap: bool = False, threshold: float = 0.65) -> pd.DataFrame:
         """Generates signals with Confidence Floors and Volatility Filters."""
         df_out = self._inject_features(df)
         X = df_out[feature_cols]
@@ -135,13 +137,22 @@ class EnsembleModel:
         
         if calculate_shap and self.explainer:
             shap_values = self.explainer.shap_values(X)
-            # Store mean absolute SHAP for each feature in the dataframe as a diagnostic
-            # For simplicity, we just store the SHAP values for the latest prediction
-            df_out['Latest_SHAP'] = [shap_values[-1]] * len(df_out)
+            # Store SHAP values properly: handle multi-dimensional output
+            # For binary classification, shap_values is typically (n_samples, n_features, 2)
+            # Extract class 1 SHAP values if needed
+            if isinstance(shap_values, list):
+                shap_vals = shap_values[1]  # Class 1 SHAP values
+            elif shap_values.ndim == 3:
+                shap_vals = shap_values[:, :, 1]  # Binary case: class 1
+            else:
+                shap_vals = shap_values  # Already (n_samples, n_features)
+            
+            # Calculate mean absolute SHAP per sample
+            df_out['Latest_SHAP'] = np.abs(shap_vals).mean(axis=1)
             
         return df_out
 
-    def get_feature_importance(self, feature_cols):
+    def get_feature_importance(self, feature_cols: List[str]) -> np.ndarray:
         """Returns feature importance based on SHAP."""
         if self.explainer:
             # SHAP global importance (mean absolute SHAP)

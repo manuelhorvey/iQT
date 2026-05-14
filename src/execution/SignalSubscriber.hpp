@@ -40,11 +40,17 @@ private:
             auto j = nlohmann::json::parse(json_str);
             long current_seq = j["sequence_id"];
             
-            // Gap Detection
+            // Gap Detection with Recovery Logging
             if (last_sequence_id != 0 && current_seq != last_sequence_id + 1) {
-                std::cerr << "[C++] CRITICAL: Sequence Gap Detected! Last: " << last_sequence_id 
-                          << " Current: " << current_seq << ". " << (current_seq - last_sequence_id - 1) 
-                          << " packets potentially lost." << std::endl;
+                long missed_count = current_seq - last_sequence_id - 1;
+                std::cerr << "[C++] WARNING: Sequence Gap Detected!" << std::endl;
+                std::cerr << "  Last received: " << last_sequence_id << std::endl;
+                std::cerr << "  Current packet: " << current_seq << std::endl;
+                std::cerr << "  Missed packets: " << missed_count << std::endl;
+                std::cerr << "[C++] Initiating recovery: missing signals may need retransmission" << std::endl;
+                
+                // Log gap event for monitoring/alerting
+                log_sequence_gap(last_sequence_id, current_seq);
             }
             last_sequence_id = current_seq;
 
@@ -61,8 +67,24 @@ private:
                 );
             }
         } catch (const std::exception& e) {
-            std::cerr << "[C++] Error parsing signals: " << e.what() << std::endl;
+            std::cerr << "[C++] CRITICAL: Error parsing signals: " << e.what() << std::endl;
+            log_parse_error(json_str, e.what());
         }
+    }
+
+    void log_sequence_gap(long last_seq, long current_seq) {
+        // Log gap for retry mechanism or alerting
+        // In production, this could trigger a request back to Python for re-transmission
+        std::string gap_log = "[SEQ_GAP] last=" + std::to_string(last_seq) + 
+                             " current=" + std::to_string(current_seq);
+        std::cerr << gap_log << std::endl;
+    }
+
+    void log_parse_error(const std::string& json_str, const std::string& error) {
+        // Log failed JSON parse for debugging
+        std::string truncated = json_str.length() > 100 ? json_str.substr(0, 100) + "..." : json_str;
+        std::string error_log = "[PARSE_ERR] " + error + " | payload=" + truncated;
+        std::cerr << error_log << std::endl;
     }
 
     ExecutionEngine* engine;

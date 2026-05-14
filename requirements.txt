@@ -13,3 +13,6 @@ matplotlib
 seaborn
 pyarrow
 jinja2
+pyzmq>=25.0.0
+shap>=0.41.0
+scipy>=1.8.0
