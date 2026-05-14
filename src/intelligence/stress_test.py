@@ -1,17 +1,18 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from typing import Dict, Any
 
 class StressTester:
     """
     Institutional Stress Testing Suite for Quantitative Strategies.
     Includes Monte Carlo, Deflated Sharpe, and Correlation Shock modules.
     """
-    def __init__(self, portfolio_returns, initial_capital=100000.0):
-        self.returns = portfolio_returns # Daily returns series
+    def __init__(self, portfolio_returns: pd.Series, initial_capital: float = 100000.0) -> None:
+        self.returns = portfolio_returns
         self.initial_capital = initial_capital
 
-    def run_monte_carlo(self, n_sims=10000):
+    def run_monte_carlo(self, n_sims: int = 10000) -> Dict[str, float]:
         """Simulates 10,000 paths using block bootstrap to preserve autocorrelation."""
         print(f"Running {n_sims} Monte Carlo paths...")
         sim_results = []
@@ -40,14 +41,14 @@ class StressTester:
             'prob_of_loss': (np.array(sim_results) < self.initial_capital).mean()
         }
 
-    def calculate_var(self, confidence=0.95):
+    def calculate_var(self, confidence: float = 0.95) -> float:
         """Calculates Value at Risk (VaR)."""
         mu = self.returns.mean()
         sigma = self.returns.std()
         var = norm.ppf(1 - confidence, mu, sigma)
         return var * self.initial_capital
 
-    def calculate_deflated_sharpe(self, n_trials=50):
+    def calculate_deflated_sharpe(self, n_trials: int = 50) -> Dict[str, Any]:
         """
         Calculates the Deflated Sharpe Ratio (DSR).
         Penalizes the Sharpe for multiple testing bias.
@@ -68,7 +69,7 @@ class StressTester:
             'is_statistically_significant': is_significant
         }
 
-    def correlation_shock_test(self, asset_returns_df):
+    def correlation_shock_test(self, asset_returns_df: pd.DataFrame) -> float:
         """
         Simulates a 'Correlation Cluster' where all assets move together.
         Measures the impact on HRP weights and Drawdown.

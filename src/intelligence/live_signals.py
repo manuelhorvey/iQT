@@ -1,17 +1,18 @@
 import pandas as pd
 import numpy as np
 from allocation import HRPAllocator
+from typing import Dict, List, Any
 
 class LiveSignalEngine:
     """
     Translates raw model signals and risk parameters into actionable 
     Forex execution tickets.
     """
-    def __init__(self, risk_manager, initial_capital=100000.0):
+    def __init__(self, risk_manager: Any, initial_capital: float = 100000.0) -> None:
         self.risk_manager = risk_manager
         self.initial_capital = initial_capital
 
-    def generate_tickets(self, signaled_data):
+    def generate_tickets(self, signaled_data: Dict[str, pd.DataFrame]) -> List[Dict[str, Any]]:
         """
         Processes the latest data point for each pair and generates 
         execution instructions using HRP allocation.
@@ -67,7 +68,8 @@ class LiveSignalEngine:
             
         return tickets
 
-    def get_portfolio_summary(self, tickets, signaled_data):
+    def get_portfolio_summary(self, tickets: List[Dict[str, Any]], 
+                            signaled_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
         """Calculates aggregate portfolio-level risk metrics."""
         total_lots = sum(t['lots'] for t in tickets)
         active_pairs = len(tickets)

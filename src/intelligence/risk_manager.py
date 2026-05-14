@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
+from typing import Dict, Tuple, Optional
 
 class ForexRiskManager:
     """
     Institutional Forex Risk Manager with Variable Spreads, Swap Fees, 
     Correlation Scaling, and Fixed Fractional Risk.
     """
-    def __init__(self, risk_per_trade=0.01, atr_multiplier=2.0, max_leverage=10.0, 
-                 daily_loss_limit=0.02, initial_capital=100000.0):
+    def __init__(self, risk_per_trade: float = 0.01, atr_multiplier: float = 2.0, 
+                 max_leverage: float = 10.0, daily_loss_limit: float = 0.02, 
+                 initial_capital: float = 100000.0) -> None:
         self.risk_per_trade = risk_per_trade
         self.atr_multiplier = atr_multiplier
         self.max_leverage = max_leverage

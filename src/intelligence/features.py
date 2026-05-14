@@ -2,10 +2,10 @@ import pandas as pd
 import pandas_ta as ta
 
 class FeatureEngineer:
-    def __init__(self, df):
+    def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
 
-    def generate_features(self):
+    def generate_features(self) -> pd.DataFrame:
         print("Calculating technical indicators...")
         
         # Moving Averages
