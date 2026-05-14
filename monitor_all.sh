@@ -12,8 +12,44 @@ GBPAUD=X,AUDCAD=X,NZDJPY=X,EURCAD=X,GBPCAD=X,AUDNZD=X,CADJPY=X,\
 EURNZD=X,GBPNZD=X,GBPCHF=X,CADCHF=X,NZDCAD=X,NZDCHF=X,AUDCHF=X,\
 GC=F"
 
+set -euo pipefail
+
 # 2. Setup Environment
 source venv/bin/activate
+
+ENGINE_BIN="./build/src/cpp/QuantEngine"
+ENGINE_LOG="logs/quantengine.log"
+
+cleanup() {
+    if [ -n "${ENGINE_PID-}" ] && kill -0 "$ENGINE_PID" >/dev/null 2>&1; then
+        echo "Shutting down QuantEngine (PID=$ENGINE_PID)..."
+        kill "$ENGINE_PID" >/dev/null 2>&1 || true
+        wait "$ENGINE_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+
+if [ ! -x "$ENGINE_BIN" ]; then
+    echo "Error: C++ engine binary not found at $ENGINE_BIN"
+    echo "Please build the project first (e.g. cmake --build build --target QuantEngine)."
+    exit 1
+fi
+
+mkdir -p "$(dirname "$ENGINE_LOG")"
+
+echo "=============================================================================="
+echo " STARTING C++ EXECUTION ENGINE "
+echo "=============================================================================="
+"$ENGINE_BIN" > "$ENGINE_LOG" 2>&1 &
+ENGINE_PID=$!
+
+# Wait for the C++ engine to bind port 5555
+for i in $(seq 1 10); do
+    if echo > /dev/tcp/127.0.0.1/5555 >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
 
 # 3. Launch the Monitor
 echo "=============================================================================="

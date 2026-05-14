@@ -1,0 +1,83 @@
+==========================================
+ INSTITUTIONAL FOREX EXECUTION ENGINE 
+==========================================
+[PositionManager] Successfully recovered 33 positions from engine_state.json
+[C++] Connected to Hardened PUSH/PULL Bridge at tcp://127.0.0.1:5555
+[C++] Engine ready. Waiting for signals from Python...
+[C++] Received Packet #1 with 19 tickets
+[Engine] Processing signal for EURUSD=X...
+[Engine] Order for EURUSD=X FILLED
+  -> Lots: 8.63 | Filled: 1.17111
+[PositionManager] Warning: Position already exists for EURUSD=X
+[Engine] Processing signal for GBPUSD=X...
+[Engine] Order for GBPUSD=X FILLED
+  -> Lots: 5.28 | Filled: 1.35191
+[PositionManager] Warning: Position already exists for GBPUSD=X
+[Engine] Processing signal for USDJPY=X...
+[Engine] Order for USDJPY=X FILLED
+  -> Lots: 0.93 | Filled: 157.907
+[PositionManager] Warning: Position already exists for USDJPY=X
+[Engine] Processing signal for AUDUSD=X...
+[Engine] Order for AUDUSD=X FILLED
+  -> Lots: 3.13 | Filled: 0.724833
+[PositionManager] Warning: Position already exists for AUDUSD=X
+[Engine] Processing signal for NZDUSD=X...
+[Engine] Order for NZDUSD=X FILLED
+  -> Lots: 3.64 | Filled: 0.593751
+[PositionManager] Warning: Position already exists for NZDUSD=X
+[Engine] Processing signal for EURGBP=X...
+[Engine] Order for EURGBP=X FILLED
+  -> Lots: 4.38 | Filled: 0.86608
+[PositionManager] Warning: Position already exists for EURGBP=X
+[Engine] Processing signal for EURJPY=X...
+[Engine] Order for EURJPY=X FILLED
+  -> Lots: 0.01 | Filled: 184.877
+[PositionManager] Warning: Position already exists for EURJPY=X
+[Engine] Processing signal for AUDJPY=X...
+[Engine] Order for AUDJPY=X FILLED
+  -> Lots: 0.03 | Filled: 114.432
+[PositionManager] Warning: Position already exists for AUDJPY=X
+[Engine] Processing signal for EURCHF=X...
+[Engine] Order for EURCHF=X FILLED
+  -> Lots: 9.04 | Filled: 0.915512
+[PositionManager] Warning: Position already exists for EURCHF=X
+[Engine] Processing signal for EURAUD=X...
+[Engine] Order for EURAUD=X FILLED
+  -> Lots: 4.93 | Filled: 1.61557
+[PositionManager] Warning: Position already exists for EURAUD=X
+[Engine] Processing signal for GBPAUD=X...
+[Engine] Order for GBPAUD=X FILLED
+  -> Lots: 22.09 | Filled: 1.86531
+[PositionManager] Warning: Position already exists for GBPAUD=X
+[Engine] Processing signal for AUDCAD=X...
+[Engine] Order for AUDCAD=X FILLED
+  -> Lots: 6.1 | Filled: 0.993098
+[PositionManager] Warning: Position already exists for AUDCAD=X
+[Engine] Processing signal for NZDJPY=X...
+[Engine] Order for NZDJPY=X FILLED
+  -> Lots: 0.03 | Filled: 93.7249
+[PositionManager] Warning: Position already exists for NZDJPY=X
+[Engine] Processing signal for GBPCAD=X...
+[Engine] Order for GBPCAD=X FILLED
+  -> Lots: 4.01 | Filled: 1.85257
+[PositionManager] Warning: Position already exists for GBPCAD=X
+[Engine] Processing signal for CADJPY=X...
+[Engine] Order for CADJPY=X FILLED
+  -> Lots: 0.01 | Filled: 115.212
+[PositionManager] Warning: Position already exists for CADJPY=X
+[Engine] Processing signal for EURNZD=X...
+[Engine] Order for EURNZD=X FILLED
+  -> Lots: 3.2 | Filled: 1.97231
+[PositionManager] Warning: Position already exists for EURNZD=X
+[Engine] Processing signal for GBPNZD=X...
+[Engine] Order for GBPNZD=X FILLED
+  -> Lots: 4.43 | Filled: 2.27734
+[PositionManager] Warning: Position already exists for GBPNZD=X
+[Engine] Processing signal for NZDCAD=X...
+[Engine] Order for NZDCAD=X FILLED
+  -> Lots: 9.97 | Filled: 0.813559
+[PositionManager] Warning: Position already exists for NZDCAD=X
+[Engine] Processing signal for GC=F...
+[Engine] Order for GC=F FILLED
+  -> Lots: 0.03 | Filled: 4696.5
+[TRADE_EVENT] OPEN | GC=F | Price: 4696.50005 | PnL: $0.00 | Reason: Signal Execution
