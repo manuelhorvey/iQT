@@ -104,12 +104,28 @@ class RegimeDetector:
 
         sorted_states = sorted(regime_vol, key=regime_vol.get)
 
-        labels = ["Low_Vol", "Medium_Vol", "High_Vol"]
-
+        # Mapping regimes to Strategy Archetypes
+        # Low Vol -> MEAN_REVERSION (Range)
+        # High Vol -> TRENDING
+        # Medium Vol -> TRANSITION
         self.regime_map = {
-            sorted_states[i]: labels[i] for i in range(min(3, len(sorted_states)))
+            sorted_states[0]: "Low_Vol",
+            sorted_states[1]: "Medium_Vol",
+            sorted_states[2]: "High_Vol"
         }
 
+        self.archetype_map = {
+            sorted_states[0]: "MEAN_REVERSION",
+            sorted_states[1]: "TRANSITION",
+            sorted_states[2]: "TRENDING"
+        }
+
+        # Probabilistic Mapping (V3)
+        df_out["P_Range"] = probs[:, sorted_states[0]]
+        df_out["P_Transition"] = probs[:, sorted_states[1]]
+        df_out["P_Trend"] = probs[:, sorted_states[2]]
+
         df_out["Regime_Label"] = df_out["Regime"].map(self.regime_map)
+        df_out["Regime_Archetype"] = df_out["Regime"].map(self.archetype_map)
 
         return df_out

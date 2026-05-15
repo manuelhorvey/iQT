@@ -34,22 +34,28 @@ class FeatureEngineer:
         df["RSI_14"] = ta.rsi(df["Close"], length=14)
         df["RSI_7"] = ta.rsi(df["Close"], length=7) # Fast momentum
         
-        # Bollinger Bands for Mean Reversion
-        bbands = ta.bbands(df["Close"], length=20, std=2)
-        if bbands is not None:
-            # Use dynamic filtering to handle pandas_ta column naming variations
-            bbu = bbands.filter(like="BBU").iloc[:, 0]
-            bbl = bbands.filter(like="BBL").iloc[:, 0]
-            
-            df["BB_Width"] = (bbu - bbl) / df["Close"]
-            df["BB_Pct"] = (df["Close"] - bbl) / (bbu - bbl + 1e-8)
-
         # =========================
         # Volatility & Noise
         # =========================
         df["ATR_14"] = ta.atr(df["High"], df["Low"], df["Close"], length=14)
         df["Vol_Ratio"] = df["ATR_14"] / df["ATR_14"].rolling(100).mean() # Volatility spikes
         df["Vol_of_Vol"] = df["Returns"].rolling(20).std().rolling(20).std()
+
+        # Bollinger Bands for Mean Reversion
+        bbands = ta.bbands(df["Close"], length=20, std=2)
+        if bbands is not None:
+            # Use dynamic filtering to handle pandas_ta column naming variations
+            bbu = bbands.filter(like="BBU").iloc[:, 0]
+            bbl = bbands.filter(like="BBL").iloc[:, 0]
+            bbm = bbands.filter(like="BBM").iloc[:, 0]
+            
+            df["BB_Width"] = (bbu - bbl) / df["Close"]
+            df["BB_Pct"] = (df["Close"] - bbl) / (bbu - bbl + 1e-8)
+            df["BB_Dist_High"] = (df["Close"] - bbu) / (df["ATR_14"] + 1e-8)
+            df["BB_Dist_Low"] = (df["Close"] - bbl) / (df["ATR_14"] + 1e-8)
+
+        # Price Z-Score (Mean Reversion core)
+        df["Price_ZScore_20"] = (df["Close"] - df["Close"].rolling(20).mean()) / (df["Close"].rolling(20).std() + 1e-8)
 
         # Kaufman Efficiency Ratio (ER)
         change = (df["Close"] - df["Close"].shift(10)).abs()

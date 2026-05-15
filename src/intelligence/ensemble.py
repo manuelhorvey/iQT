@@ -8,37 +8,46 @@ from typing import Dict, List, Optional
 class EnsembleModel:
     def __init__(self, params: Optional[Dict] = None) -> None:
         default_params = {
-            "n_estimators": 300,
+            "n_estimators": 250,
             "learning_rate": 0.02,
-            "max_depth": 4,
-            "subsample": 0.8,
-            "colsample_bytree": 0.8,
-            "reg_lambda": 2.0,
+            "max_depth": 3,
+            "subsample": 0.7,
+            "colsample_bytree": 0.7,
+            "reg_lambda": 3.0,
             "random_state": 42,
         }
 
         if params:
             default_params.update(params)
 
-        self.model = xgb.XGBRegressor(**default_params)
+        # Dual Experts
+        self.trend_expert = xgb.XGBRegressor(**default_params)
+        self.range_expert = xgb.XGBRegressor(**default_params)
+        
+        # Meta-label filter (Target: Will the primary signal be profitable?)
+        self.meta_filter = xgb.XGBClassifier(
+            n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42
+        )
 
         self.feature_cols = None
+        
+        # Explicit Feature Sets
+        self.trend_features = [
+            "SMA_Dist_Z", "Ret_Lag_1", "ATR_Slope", "ADX_14", "DXY_Slope_20", "UUP_Corr_60"
+        ]
+        self.range_features = [
+            "RSI_14_Z", "RSI_7", "BB_Pct", "Price_ZScore_20", "BB_Dist_High", "BB_Dist_Low"
+        ]
         self.accuracy = 0.0
 
     # ----------------------------
     def _inject_features(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
-        regime = df_out.get("Regime", -1)
-
-        for r in [0, 1, 2]:
-            df_out[f"Regime_{r}"] = (regime == r).astype(int)
-
         return df_out
 
     # ----------------------------
     def _create_target(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
-        # Back to honest 1-day prediction to avoid autocorrelation-leakage
         df["Target"] = df["Returns"].shift(-1)
         return df
 
@@ -47,13 +56,7 @@ class EnsembleModel:
         df = self._inject_features(df)
         df = self._create_target(df)
 
-        feature_cols = [
-            "RSI_14_Z", "ATR_14_Z", "SMA_Dist_Z",
-            "Ret_Lag_1", "Ret_Lag_2",
-            "Regime_0", "Regime_1", "Regime_2",
-            "ATR_Slope", "DXY_Slope_20",
-            "ADX_14", "RSI_7", "BB_Pct", "UUP_Corr_60"
-        ]
+        feature_cols = sorted(list(set(self.trend_features + self.range_features)))
 
         available = [c for c in feature_cols if c in df.columns]
         df_clean = df.dropna(subset=available + ["Target"]).copy()
@@ -64,38 +67,69 @@ class EnsembleModel:
 
     # ----------------------------
     def prepare_multi_asset_data(self, data_map: Dict[str, pd.DataFrame]):
-        Xs, ys = [], []
+        Xs, ys, dfs = [], [], []
 
         for _, df in data_map.items():
-            X, y, _, _ = self.prepare_data(df)
+            X, y, df_full, _ = self.prepare_data(df)
             Xs.append(X)
             ys.append(y)
+            dfs.append(df_full)
 
         return (
             pd.concat(Xs).reset_index(drop=True),
             pd.concat(ys).reset_index(drop=True),
+            pd.concat(dfs).reset_index(drop=True),
             self.feature_cols,
         )
 
     # ----------------------------
-    def train(self, X: pd.DataFrame, y: pd.Series) -> None:
-        print("Training EV Regression Model (V7)...")
+    def train(self, X: pd.DataFrame, y: pd.Series, df_full: pd.DataFrame = None) -> None:
+        """
+        Trains the Experts using Probabilistic weighting.
+        """
+        print("Training RG-MoE Specialists (Trend + Range)...")
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, shuffle=False
-        )
+        if df_full is None:
+            self.trend_expert.fit(X[self.trend_features], y)
+            self.range_expert.fit(X[self.range_features], y)
+            return
 
-        self.model.fit(X_train, y_train)
-        preds = self.model.predict(X_test)
+        # 1. Train Trend Expert with probabilistic weight
+        p_trend = df_full["P_Trend"].values
+        self.trend_expert.fit(X[self.trend_features], y, sample_weight=p_trend)
+        print(f"  - Trend Expert trained on weighted samples (Avg P: {np.mean(p_trend):.2f})")
 
-        self.accuracy = np.mean((preds > 0) == (y_test.values > 0))
-        print(f"Directional Alignment: {self.accuracy:.2%}")
+        # 2. Train Range Expert with probabilistic weight
+        p_range = df_full["P_Range"].values
+        self.range_expert.fit(X[self.range_features], y, sample_weight=p_range)
+        print(f"  - Range Expert trained on weighted samples (Avg P: {np.mean(p_range):.2f})")
 
-        # store distribution for ranking
-        self._train_preds = preds
+        # Meta-accuracy check
+        preds = self.model_predict(X, df_full)
+        self.accuracy = np.mean((preds > 0) == (y.values > 0))
+        print(f"MoE Directional Alignment: {self.accuracy:.2%}")
+
+    def model_predict(self, X: pd.DataFrame, df: pd.DataFrame) -> np.ndarray:
+        """
+        Blends expert predictions using HMM probabilities (Soft Activation).
+        """
+        # Get raw predictions from each expert using their specific feature set
+        p_trend_val = self.trend_expert.predict(X[self.trend_features])
+        p_range_val = self.range_expert.predict(X[self.range_features])
+        
+        # Get regime probabilities
+        w_trend = df["P_Trend"].values
+        w_range = df["P_Range"].values
+        w_transition = df["P_Transition"].values
+        
+        # Unified blending
+        # In transition zones, we take a conservative blend of both
+        final_preds = (w_trend * p_trend_val) + (w_range * p_range_val) + (w_transition * (p_trend_val + p_range_val) / 2.0)
+                
+        return final_preds
 
     # ----------------------------
-    # V7 SIGNAL ENGINE (RANK-BASED EV)
+    # V9 SIGNAL ENGINE (PROBABILISTIC MoE + ANTI-CONFLICT)
     # ----------------------------
     def generate_signals(
         self,
@@ -106,26 +140,25 @@ class EnsembleModel:
         regime_gating_threshold: float = 0.0,
     ) -> pd.DataFrame:
         """
-        Generates signals based on rank-transformed EV and cost adjustment.
-        Implements Regime Gating to suppress signals in high-entropy/uncertain markets.
+        Generates signals using Soft MoE Activation and Anti-Conflict logic.
         """
 
         df_out = self._inject_features(df)
-        X = df_out[feature_cols]
+        X = df_out[self.feature_cols]
 
-        raw_ev = self.model.predict(X)
+        # Expert predictions for conflict check
+        ev_trend = self.trend_expert.predict(X[self.trend_features])
+        ev_range = self.range_expert.predict(X[self.range_features])
+
+        # Blended EV
+        raw_ev = self.model_predict(X, df_out)
 
         # ----------------------------
         # RANK TRANSFORM (CORE FIX)
-        # Add tiny jitter to prevent identical ranks in low-variance models
         # ----------------------------
         jitter = np.random.normal(0, 1e-9, size=len(raw_ev))
         ranks = pd.Series(raw_ev + jitter).rank(pct=True).values
-
-        # convert rank → centered EV [-1, 1]
         ev = (ranks - 0.5) * 2.0
-
-        # cost adjustment
         ev = ev - cost
 
         df_out["EV"] = ev
@@ -133,28 +166,33 @@ class EnsembleModel:
         signals = np.zeros(len(ev))
         position = 0
 
-        # Threshold mapping (e.g. 0.65 -> 0.3)
         entry = threshold * 2 - 1
         exit_level = 0.05
 
-        # Regime Gating: suppress signals if Entropy > Threshold (if gating > 0)
+        # Regime Gating
         entropy = df_out.get("Regime_Entropy", pd.Series(0, index=df_out.index))
 
         for i in range(len(ev)):
-            # Apply gating: if entropy is too high, we don't enter new positions
             gated = False
             if regime_gating_threshold > 0 and entropy.iloc[i] > regime_gating_threshold:
                 gated = True
 
+            # ANTI-CONFLICT RULE: Experts must not strongly disagree on sign
+            # If Trend wants BUY and Range wants SELL, we skip or reduce size
+            conflict = False
+            if np.sign(ev_trend[i]) != np.sign(ev_range[i]) and abs(ev_trend[i]) > 1e-4 and abs(ev_range[i]) > 1e-4:
+                # We only flag conflict if both experts have non-negligible convictions
+                conflict = True
+
             if position == 0:
-                if not gated:
+                if not gated and not conflict:
                     if ev[i] > entry:
                         position = 1
                     elif ev[i] < -entry:
                         position = -1
 
             elif position == 1:
-                # Exit if EV falls below exit level OR if we become severely gated (optional)
+                # Exit if EV falls below exit level
                 if ev[i] < exit_level:
                     position = 0
 
@@ -169,4 +207,5 @@ class EnsembleModel:
         return df_out
 
     def get_feature_importance(self):
-        return self.model.feature_importances_
+        # Weighted average feature importance or return dict
+        return self.trend_expert.feature_importances_

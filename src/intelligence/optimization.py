@@ -108,10 +108,10 @@ class WalkForwardOptimizer:
 
                 model = EnsembleModel(params=params)
 
-                X_is, y_is, _ = model.prepare_multi_asset_data(is_map)
-                model.train(X_is, y_is)
+                X_is, y_is, df_is, _ = model.prepare_multi_asset_data(is_map)
+                model.train(X_is, y_is, df_full=df_is)
 
-                preds = model.model.predict(X_is)
+                preds = model.model_predict(X_is, df_is)
 
                 score = self._ev_score(y_is.values, preds)
 

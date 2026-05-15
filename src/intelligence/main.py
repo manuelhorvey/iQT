@@ -75,9 +75,9 @@ def build_dataset(data_map):
 def train_model(processed_data):
     model = EnsembleModel()
 
-    X, y, feature_cols = model.prepare_multi_asset_data(processed_data)
+    X, y, df_full, feature_cols = model.prepare_multi_asset_data(processed_data)
 
-    model.train(X, y)
+    model.train(X, y, df_full=df_full)
 
     return model, feature_cols
 
