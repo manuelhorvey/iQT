@@ -137,6 +137,11 @@ def run_live(model, processed_data, feature_cols, risk_manager):
 
     publisher.publish_tickets(tickets)
 
+    # RESTORE: Update Live Command Center Telemetry
+    from dashboard_generator import DashboardGenerator
+    dashboard = DashboardGenerator(None, None, None)
+    dashboard.generate_live_dashboard(tickets, summary, tickers_count=len(processed_data))
+
     print(f"Active Signals: {summary['active_signals']}")
     print(f"Exposure: {summary['total_exposure_lots']}")
 
