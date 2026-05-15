@@ -4,3 +4,112 @@
 [PositionManager] Successfully recovered 34 positions from engine_state.json
 [C++] Connected to Hardened PUSH/PULL Bridge at tcp://127.0.0.1:5555
 [C++] Engine ready. Waiting for signals from Python...
+[C++] Received Packet #1 with 27 tickets
+[Engine] Processing signal for EURUSD=X...
+[Engine] Order for EURUSD=X FILLED
+  -> Lots: 0.23 | Filled: 1.16724
+[PositionManager] Warning: Position already exists for EURUSD=X
+[Engine] Processing signal for GBPUSD=X...
+[Engine] Order for GBPUSD=X FILLED
+  -> Lots: 0.23 | Filled: 1.34
+[PositionManager] Warning: Position already exists for GBPUSD=X
+[Engine] Processing signal for USDJPY=X...
+[Engine] Order for USDJPY=X FILLED
+  -> Lots: 0.32 | Filled: 158.383
+[PositionManager] Warning: Position already exists for USDJPY=X
+[Engine] Processing signal for AUDUSD=X...
+[Engine] Order for AUDUSD=X FILLED
+  -> Lots: 0.19 | Filled: 0.722251
+[PositionManager] Warning: Position already exists for AUDUSD=X
+[Engine] Processing signal for USDCAD=X...
+[Engine] Order for USDCAD=X FILLED
+  -> Lots: 0.08 | Filled: 1.37195
+[PositionManager] Warning: Position already exists for USDCAD=X
+[Engine] Processing signal for NZDUSD=X...
+[Engine] Order for NZDUSD=X FILLED
+  -> Lots: 0.31 | Filled: 0.591297
+[PositionManager] Warning: Position already exists for NZDUSD=X
+[Engine] Processing signal for USDCHF=X...
+[Engine] Order for USDCHF=X FILLED
+  -> Lots: 0.37 | Filled: 0.783606
+[PositionManager] Warning: Position already exists for USDCHF=X
+[Engine] Processing signal for EURGBP=X...
+[Engine] Order for EURGBP=X FILLED
+  -> Lots: 0.77 | Filled: 0.870643
+[PositionManager] Warning: Position already exists for EURGBP=X
+[Engine] Processing signal for EURJPY=X...
+[Engine] Order for EURJPY=X FILLED
+  -> Lots: 0 | Filled: 184.785
+[PositionManager] Warning: Position already exists for EURJPY=X
+[Engine] Processing signal for GBPJPY=X...
+[Engine] Order for GBPJPY=X FILLED
+  -> Lots: 0 | Filled: 212.22
+[PositionManager] Warning: Position already exists for GBPJPY=X
+[Engine] Processing signal for AUDJPY=X...
+[Engine] Order for AUDJPY=X FILLED
+  -> Lots: 0 | Filled: 114.349
+[PositionManager] Warning: Position already exists for AUDJPY=X
+[Engine] Processing signal for CHFJPY=X...
+[Engine] Order for CHFJPY=X FILLED
+  -> Lots: 0 | Filled: 202.067
+[PositionManager] Warning: Position already exists for CHFJPY=X
+[Engine] Processing signal for EURCHF=X...
+[Engine] Order for EURCHF=X FILLED
+  -> Lots: 0.78 | Filled: 0.914219
+[PositionManager] Warning: Position already exists for EURCHF=X
+[Engine] Processing signal for GBPAUD=X...
+[Engine] Order for GBPAUD=X FILLED
+  -> Lots: 0.12 | Filled: 1.85535
+[PositionManager] Warning: Position already exists for GBPAUD=X
+[Engine] Processing signal for AUDCAD=X...
+[Engine] Order for AUDCAD=X FILLED
+  -> Lots: 0.09 | Filled: 0.990293
+[PositionManager] Warning: Position already exists for AUDCAD=X
+[Engine] Processing signal for NZDJPY=X...
+[Engine] Order for NZDJPY=X FILLED
+  -> Lots: 0 | Filled: 93.6105
+[PositionManager] Warning: Position already exists for NZDJPY=X
+[Engine] Processing signal for EURCAD=X...
+[Engine] Order for EURCAD=X FILLED
+  -> Lots: 0.21 | Filled: 1.60068
+[PositionManager] Warning: Position already exists for EURCAD=X
+[Engine] Processing signal for GBPCAD=X...
+[Engine] Order for GBPCAD=X FILLED
+  -> Lots: 0.07 | Filled: 1.83779
+[PositionManager] Warning: Position already exists for GBPCAD=X
+[Engine] Processing signal for AUDNZD=X...
+[Engine] Order for AUDNZD=X FILLED
+  -> Lots: 1.51 | Filled: 1.22054
+[PositionManager] Warning: Position already exists for AUDNZD=X
+[Engine] Processing signal for CADJPY=X...
+[Engine] Order for CADJPY=X FILLED
+  -> Lots: 0 | Filled: 115.442
+[PositionManager] Warning: Position already exists for CADJPY=X
+[Engine] Processing signal for GBPNZD=X...
+[Engine] Order for GBPNZD=X FILLED
+  -> Lots: 0.14 | Filled: 2.2666
+[PositionManager] Warning: Position already exists for GBPNZD=X
+[Engine] Processing signal for GBPCHF=X...
+[Engine] Order for GBPCHF=X FILLED
+  -> Lots: 0.1 | Filled: 1.05016
+[PositionManager] Warning: Position already exists for GBPCHF=X
+[Engine] Processing signal for CADCHF=X...
+[Engine] Order for CADCHF=X FILLED
+  -> Lots: 0.22 | Filled: 0.571177
+[PositionManager] Warning: Position already exists for CADCHF=X
+[Engine] Processing signal for NZDCAD=X...
+[Engine] Order for NZDCAD=X FILLED
+  -> Lots: 0.15 | Filled: 0.810258
+[PositionManager] Warning: Position already exists for NZDCAD=X
+[Engine] Processing signal for NZDCHF=X...
+[Engine] Order for NZDCHF=X FILLED
+  -> Lots: 0.29 | Filled: 0.462922
+[PositionManager] Warning: Position already exists for NZDCHF=X
+[Engine] Processing signal for AUDCHF=X...
+[Engine] Order for AUDCHF=X FILLED
+  -> Lots: 0.23 | Filled: 0.565771
+[PositionManager] Warning: Position already exists for AUDCHF=X
+[Engine] Processing signal for GC=F...
+[Engine] Order for GC=F FILLED
+  -> Lots: 0.03 | Filled: 4657.2
+[PositionManager] Warning: Position already exists for GC=F

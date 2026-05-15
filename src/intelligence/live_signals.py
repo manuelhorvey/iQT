@@ -10,21 +10,12 @@ class LiveSignalEngine:
         self.initial_capital = initial_capital
 
     # ---------------------------------------------------
-    # SAFE SIGNAL GENERATION (NO PRECOMPUTED DEPENDENCY)
-    # ---------------------------------------------------
-    def _compute_signal(self, ev: float, threshold: float = 0.75):
-        if ev > threshold:
-            return 1
-        elif ev < -threshold:
-            return -1
-        return 0
-
-    # ---------------------------------------------------
     def generate_tickets(
         self,
         signaled_data,
         model=None,
-        feature_cols=None
+        feature_cols=None,
+        threshold: float = 0.65
     ):
         returns_df = pd.DataFrame({
             t: df["Returns"] for t, df in signaled_data.items()
@@ -34,6 +25,12 @@ class LiveSignalEngine:
         hrp_weights = allocator.get_weights()
 
         tickets = []
+        
+        # Safety: Normalize if percentage (e.g. 52 -> 0.52)
+        if threshold > 1.0:
+            threshold = threshold / 100.0
+            
+        entry_threshold = threshold * 2 - 1
 
         for ticker, df in signaled_data.items():
             if len(df) == 0:
@@ -46,7 +43,12 @@ class LiveSignalEngine:
             # =================================================
             ev = float(latest.get("EV", 0.0))
 
-            signal = self._compute_signal(ev)
+            # Dynamic entry logic based on user threshold
+            signal = 0
+            if ev > entry_threshold:
+                signal = 1
+            elif ev < -entry_threshold:
+                signal = -1
 
             if signal == 0:
                 continue

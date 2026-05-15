@@ -120,20 +120,27 @@ def run_backtest(model, processed_data, feature_cols, risk_manager, args):
 # ---------------------------------------------------
 # live execution (HARDENED)
 # ---------------------------------------------------
-def run_live(model, processed_data, feature_cols, risk_manager):
+def run_live(model, processed_data, feature_cols, risk_manager, args):
     print("\nLIVE MODE ACTIVE")
 
-    # safety: remove NaNs before live inference
-    processed_data = {
-        t: df.dropna().copy()
-        for t, df in processed_data.items()
-    }
+    # safety: remove NaNs and generate live signals
+    signaled_data = {}
+    for t, df in processed_data.items():
+        # Generate Signals (including EV and Archetypes)
+        sig = model.generate_signals(
+            df.dropna(),
+            feature_cols,
+            threshold=args.threshold,
+            regime_gating_threshold=args.regime_gating
+        )
+        signaled_data[t] = sig
 
     engine = LiveSignalEngine(risk_manager)
     publisher = SignalPublisher()
 
-    tickets = engine.generate_tickets(processed_data, model, feature_cols)
-    summary = engine.get_portfolio_summary(tickets, processed_data)
+    # Pass the threshold to the engine
+    tickets = engine.generate_tickets(signaled_data, threshold=args.threshold)
+    summary = engine.get_portfolio_summary(tickets, signaled_data)
 
     publisher.publish_tickets(tickets)
 
@@ -272,7 +279,7 @@ def main():
         ).generate()
 
     elif args.mode == "live":
-        run_live(model, processed_data, feature_cols, risk_manager)
+        run_live(model, processed_data, feature_cols, risk_manager, args)
 
     print("\nPIPELINE COMPLETE")
 

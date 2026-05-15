@@ -62,7 +62,7 @@ done
 echo "=============================================================================="
 echo " LAUNCHING FULL PORTFOLIO MONITOR (34 ASSETS) "
 echo "=============================================================================="
-python src/intelligence/main.py --mode live --threshold 55 --tickers "$TICKERS"
+python src/intelligence/main.py --mode live --threshold 55 --regime_gating 0.6 --tickers "$TICKERS"
 
 echo "=============================================================================="
 echo " Monitor Session Complete. Check dashboard/live/ for telemetry. "

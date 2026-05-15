@@ -166,6 +166,11 @@ class EnsembleModel:
         signals = np.zeros(len(ev))
         position = 0
 
+        # Threshold mapping (e.g. 0.65 -> 0.3)
+        # Safety: Normalize if percentage (e.g. 65 -> 0.65)
+        if threshold > 1.0:
+            threshold = threshold / 100.0
+
         entry = threshold * 2 - 1
         exit_level = 0.05
 
@@ -177,12 +182,11 @@ class EnsembleModel:
             if regime_gating_threshold > 0 and entropy.iloc[i] > regime_gating_threshold:
                 gated = True
 
-            # ANTI-CONFLICT RULE: Experts must not strongly disagree on sign
-            # If Trend wants BUY and Range wants SELL, we skip or reduce size
+            # ANTI-CONFLICT RULE: Only veto on violent disagreement
             conflict = False
-            if np.sign(ev_trend[i]) != np.sign(ev_range[i]) and abs(ev_trend[i]) > 1e-4 and abs(ev_range[i]) > 1e-4:
-                # We only flag conflict if both experts have non-negligible convictions
-                conflict = True
+            if np.sign(ev_trend[i]) != np.sign(ev_range[i]):
+                if abs(ev_trend[i]) > 0.005 and abs(ev_range[i]) > 0.005:
+                    conflict = True
 
             if position == 0:
                 if not gated and not conflict:
