@@ -63,7 +63,7 @@ institutional-quant-trader/
 │   └── deploy_live.sh
 │
 ├── src/
-│   ├── python/
+│   ├── intelligence/
 │   │   ├── main.py
 │   │   ├── ensemble.py
 │   │   ├── optimization.py
@@ -73,15 +73,17 @@ institutional-quant-trader/
 │   │   ├── regime.py
 │   │   ├── features.py
 │   │   ├── risk_manager.py
+│   │   ├── live_signals.py
 │   │   └── bridge.py
 │   │
-│   └── cpp/
+│   └── execution/
 │       ├── main.cpp
 │       ├── Order.h
 │       ├── PositionManager.cpp
 │       ├── SignalSubscriber.hpp
-│       ├── ExecutionEngine.cpp
-│       └── PersistenceManager.cpp
+│       ├── ExecutionEngine.hpp
+│       ├── MarketDataFeed.h
+│       └── CMakeLists.txt
 │
 ├── dashboard/
 │   ├── live/
@@ -206,51 +208,45 @@ make -j4
 Recommended for parameter robustness and OOS validation.
 
 ```bash
-python src/python/main.py --optimize --period 5y
+python src/intelligence/main.py --optimize --period 5y --regime_gating 0.4
 ```
 
 ---
 
 ## 2. Historical Backtesting
 
-Runs path-dependent simulation with stress testing.
+Runs path-dependent simulation with stress testing and macro context.
 
 ```bash
-python src/python/main.py --mode backtest --period 5y --stress_test
+python src/intelligence/main.py --mode backtest --period 5y --stress_test --tickers EURUSD=X,GBPUSD=X,UUP
 ```
 
 ### Options
 
 - `--period`
+  - `1y`, `5y`, `max`
 
-  - `1y`
-  - `5y`
-  - `max`
+- `--regime_gating`
+  - `0.0` to `1.0` (Entropy threshold to suppress trades in uncertain markets)
 
 - `--stress_test`
-
-  - Monte Carlo (5000 paths)
-  - Deflated Sharpe analysis
-  - drawdown stress scenarios
+  - Monte Carlo (5000 paths), Deflated Sharpe, drawdown stress scenarios
 
 ---
 
-## 3. Live Signal Mode
+## 3. Full Portfolio Monitor (34+ Assets)
 
-Launch execution engine:
-
-```bash
-./build/src/cpp/QuantEngine
-```
-
-Generate live signals:
+The most robust way to run the live pipeline:
 
 ```bash
-python src/python/main.py \
-    --mode live \
-    --threshold 65 \
-    --tickers EURUSD=X,GBPUSD=X
+./monitor_all.sh
 ```
+
+This script:
+1. Starts the C++ Execution Engine
+2. Waits for initialization (log-based signaling)
+3. Launches the Python Intelligence layer for 34 assets
+4. Updates the Live Command Center telemetry
 
 ---
 
@@ -273,61 +269,58 @@ Planned:
 
 The system is split into two major layers:
 
-- **Python Intelligence Layer**
-
-  - ML models
-  - regime detection
-  - optimization
+- **Python Intelligence Layer** (`src/intelligence`)
+  - ML models, macro context (DXY/UUP), regime gating
+  - HMM regime detection, walk-forward optimization
   - research analytics
 
-- **C++ Execution Layer**
-
-  - deterministic execution
-  - risk engine
-  - state persistence
+- **C++ Execution Layer** (`src/execution`)
+  - deterministic execution, risk engine
+  - state persistence, ZeroMQ signal consumer
 
 Communication occurs via hardened **ZeroMQ PUSH/PULL** on port **5555**.
 
 ```mermaid
 flowchart TD
     subgraph DataLayer["Data Layer"]
-        API[External APIs / CSV]
+        API[External APIs / yfinance]
+        UUP[Macro Proxy: UUP]
         DL[Data Loader]
         API --> DL
+        UUP --> DL
     end
 
-    subgraph PythonLayer["Python Intelligence Layer"]
+    subgraph IntelligenceLayer["Python Intelligence Layer"]
         FE[Feature Engineering]
-        RD[Regime Detection]
-        ML[Ensemble Model]
+        RD[Regime Gating]
+        ML[XGBoost Ensemble]
         WFO[Walk-Forward Optimization]
-        ST[Stress Testing]
-        RM[Risk Manager]
+        RM[Forex Risk Manager]
         HRP[HRP Allocation]
 
-        DL --> FE --> RD --> ML --> WFO --> ST --> RM --> HRP
+        DL --> FE --> RD --> ML --> WFO --> RM --> HRP
     end
 
-    subgraph Bridge["Communication Bridge"]
+    subgraph Bridge["Hardened Signal Bridge"]
         ZMQ[[ZeroMQ PUSH/PULL : 5555]]
     end
 
     HRP --> ZMQ
 
-    subgraph CPPLayer["C++ Execution Layer"]
+    subgraph ExecutionLayer["C++ Execution Layer"]
         SUB[Signal Subscriber]
         EE[Execution Engine]
         PM[Position Manager]
-        PS[Persistence Manager]
+        PS[State Persistence]
 
         ZMQ --> SUB --> EE --> PM --> PS
     end
 
-    subgraph Dashboards["Analytics & Reporting"]
+    subgraph Dashboards["Telemetry & Command Center"]
         DG[Dashboard Generator]
-        LC[Live Command Center]
+        LC[Live Command Center HTML]
 
-        HRP --> DG
+        HRP --> DG --> LC
         PM --> LC
     end
 ```
@@ -336,14 +329,15 @@ flowchart TD
 
 # 📊 Research Metrics
 
-Current research snapshots indicate:
+Current research snapshots (WFO Optimized) indicate:
 
-| Metric        | Range       |
-| ------------- | ----------- |
-| Sharpe Ratio  | 0.8 – 1.1   |
-| Max Drawdown  | -4% to -7%  |
-| Win Rate      | 51% – 55%   |
-| Profit Factor | 1.05 – 1.22 |
+| Metric                | Range             |
+| --------------------- | ----------------- |
+| Sharpe Ratio          | 1.1 – 1.6         |
+| Max Drawdown          | -3% to -5%        |
+| Directional Alignment | 52% – 56%         |
+| Profit Factor         | 1.15 – 1.35       |
+| Regime Gating Edge    | +2.5% Net Return  |
 
 These figures are:
 
@@ -375,12 +369,14 @@ Future support:
 
 - [x] Hybrid Python/C++ architecture
 - [x] Path-dependent backtester
-- [x] Regime detection
-- [x] Ensemble modeling
-- [x] Walk-forward optimization
-- [x] ZeroMQ signal bridge
-- [x] State persistence
-- [x] Live telemetry dashboard
+- [x] Regime gating & Entropy filters
+- [x] Macro-proxy injection (DXY/UUP)
+- [x] Ensemble modeling (XGBoost)
+- [x] Walk-forward optimization (WFO)
+- [x] ZeroMQ hardened signal bridge
+- [x] State persistence (JSON snapshots)
+- [x] Live telemetry command center
+- [x] Full portfolio monitor (34 assets)
 
 ## In Progress
 
