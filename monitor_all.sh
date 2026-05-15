@@ -43,10 +43,17 @@ echo "==========================================================================
 "$ENGINE_BIN" > "$ENGINE_LOG" 2>&1 &
 ENGINE_PID=$!
 
-# Wait for the C++ engine to bind port 5555
-for i in $(seq 1 10); do
-    if echo > /dev/tcp/127.0.0.1/5555 >/dev/null 2>&1; then
+# Wait for the C++ engine to initialize
+echo "Waiting for C++ engine to initialize..."
+for i in $(seq 1 20); do
+    if grep -q "Engine ready" "$ENGINE_LOG" 2>/dev/null; then
+        echo "C++ Engine Ready."
         break
+    fi
+    if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
+        echo "Error: C++ Engine died during startup."
+        cat "$ENGINE_LOG"
+        exit 1
     fi
     sleep 0.5
 done

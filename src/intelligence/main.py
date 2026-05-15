@@ -1,4 +1,8 @@
 import argparse
+import numpy as np
+import pandas as pd
+import random
+
 from data_loader import DataManager
 from features import FeatureEngineer
 from regime import RegimeDetector
@@ -9,144 +13,264 @@ from optimization import WalkForwardOptimizer
 from risk_manager import ForexRiskManager
 from live_signals import LiveSignalEngine
 from bridge import SignalPublisher
-from stress_test import StressTester
-import pandas as pd
 
-def main():
-    parser = argparse.ArgumentParser(description='Run Quant Research Pipeline')
-    parser.add_argument('--tickers', type=str, default='EURUSD=X,GBPUSD=X,USDJPY=X,AUDUSD=X,USDCAD=X', help='Comma-separated list of tickers.')
-    parser.add_argument('--period', type=str, default='5y', help='Data period to fetch.')
-    parser.add_argument('--risk_per_trade', type=float, default=0.005, help='Equity risk per trade (e.g., 0.005 for 0.5%).')
-    parser.add_argument('--mode', type=str, default='backtest', choices=['backtest', 'live'], help='Execution mode.')
-    parser.add_argument('--threshold', type=int, default=65, help='Confidence threshold (50-100).')
-    parser.add_argument('--stress_test', action='store_true', help='Run institutional stress testing suite.')
-    parser.add_argument('--optimize', action='store_true', help='Run Walk-Forward Optimization (WFO).')
-    args = parser.parse_args()
 
-    tickers = [t.strip() for t in args.tickers.split(',')]
-    threshold_decimal = args.threshold / 100.0
+# ---------------------------------------------------
+# reproducibility
+# ---------------------------------------------------
+def set_seed(seed: int = 42):
+    np.random.seed(seed)
+    random.seed(seed)
 
-    print("=" * 50)
-    print(f"Starting Institutional Forex Pipeline | MODE: {args.mode.upper()}")
-    print(f"Pairs: {', '.join(tickers)} | THRESHOLD: {args.threshold}%")
-    print("=" * 50)
 
-    # 1. Load Data
-    provider_type = "yfinance" if args.mode == 'backtest' else "live"
-    manager = DataManager(tickers=tickers, provider_type=provider_type)
-    data_map = manager.get_data(period=args.period)
+# ---------------------------------------------------
+# SAFE GLOBAL ALIGNMENT (V8 FIXED)
+# ---------------------------------------------------
+def align_dataframes(data_map: dict) -> dict:
+    """
+    Align all assets to a single stable reference timeline.
+    Prevents cross-asset shape drift and WFO inconsistencies.
+    """
+    ref_index = next(iter(data_map.values())).index
 
-    # 2. Pre-process (Features + Regimes)
-    processed_data = {}
+    aligned = {}
+
+    for t, df in data_map.items():
+        df = df.reindex(ref_index)
+
+        # safe fill (no leakage from future data)
+        df = df.ffill().bfill()
+
+        aligned[t] = df.copy()
+
+    return aligned
+
+
+# ---------------------------------------------------
+# dataset build (NO LEAKAGE)
+# ---------------------------------------------------
+def build_dataset(data_map):
+    processed = {}
+
+    regime_model = RegimeDetector()
+
+    # feature engineering
     for ticker, df in data_map.items():
-        print(f"\nProcessing {ticker}...")
-        engineer = FeatureEngineer(df)
-        df = engineer.generate_features()
-        detector = RegimeDetector()
-        df = detector.fit_predict(df)
-        processed_data[ticker] = df
+        fe = FeatureEngineer(df)
+        processed[ticker] = fe.generate_features()
 
-    # 3. Train Ensemble Model
-    ensemble = EnsembleModel()
-    X, y, feature_cols = ensemble.prepare_multi_asset_data(processed_data)
-    ensemble.train(X, y)
+    # IMPORTANT: global alignment BEFORE regimes
+    processed = align_dataframes(processed)
 
-    # 4. Generate Signals
-    signaled_data = {}
-    for ticker, df in processed_data.items():
-        df = ensemble.generate_signals(df, feature_cols, calculate_shap=True, threshold=threshold_decimal)
-        signaled_data[ticker] = df
+    # regime fitting per asset
+    for t in processed:
+        processed[t] = regime_model.fit_predict(processed[t])
 
-    # 5. Initialize Risk Manager
+    return processed, regime_model
+
+
+# ---------------------------------------------------
+# model training
+# ---------------------------------------------------
+def train_model(processed_data):
+    model = EnsembleModel()
+
+    X, y, feature_cols = model.prepare_multi_asset_data(processed_data)
+
+    model.train(X, y)
+
+    return model, feature_cols
+
+
+# ---------------------------------------------------
+# SAFE BACKTEST WRAPPER (V8 FIX)
+# ---------------------------------------------------
+def _safe_align(df):
+    return df.dropna(subset=["Returns", "Signal"]).copy()
+
+
+# ---------------------------------------------------
+# backtest
+# ---------------------------------------------------
+def run_backtest(model, processed_data, feature_cols, risk_manager, args):
+    signaled = {}
+
+    for t, df in processed_data.items():
+        sig = model.generate_signals(
+            df,
+            feature_cols,
+            threshold=args.threshold,
+            regime_gating_threshold=args.regime_gating,
+        )
+
+        signaled[t] = _safe_align(sig)
+
+    backtester = MultiAssetBacktester(
+        signaled,
+        risk_manager=risk_manager,
+        tail_risk_penalty=args.tail_risk_penalty,
+    )
+
+    results = backtester.run()
+    metrics = backtester.calculate_metrics()
+
+    return results, metrics, signaled
+
+
+# ---------------------------------------------------
+# live execution (HARDENED)
+# ---------------------------------------------------
+def run_live(model, processed_data, feature_cols, risk_manager):
+    print("\nLIVE MODE ACTIVE")
+
+    # safety: remove NaNs before live inference
+    processed_data = {
+        t: df.dropna().copy()
+        for t, df in processed_data.items()
+    }
+
+    engine = LiveSignalEngine(risk_manager)
+    publisher = SignalPublisher()
+
+    tickets = engine.generate_tickets(processed_data, model, feature_cols)
+    summary = engine.get_portfolio_summary(tickets, processed_data)
+
+    publisher.publish_tickets(tickets)
+
+    print(f"Active Signals: {summary['active_signals']}")
+    print(f"Exposure: {summary['total_exposure_lots']}")
+
+    publisher.close()
+
+
+# ---------------------------------------------------
+# main
+# ---------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--tickers", type=str,
+                        default="EURUSD=X,GBPUSD=X,USDJPY=X,AUDUSD=X,USDCAD=X")
+
+    parser.add_argument("--period", type=str, default="5y")
+    parser.add_argument("--mode", type=str, default="backtest",
+                        choices=["backtest", "live"])
+
+    parser.add_argument("--risk_per_trade", type=float, default=0.005)
+    parser.add_argument("--threshold", type=float, default=0.65)
+    parser.add_argument("--tail_risk_penalty", type=float, default=0.005)
+    parser.add_argument("--regime_gating", type=float, default=0.0)
+    parser.add_argument("--stress_test", action="store_true")
+    parser.add_argument("--optimize", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+
+    args = parser.parse_args()
+    set_seed(args.seed)
+
+    print("=" * 60)
+    print(f"iQT PIPELINE | MODE: {args.mode.upper()}")
+    print("=" * 60)
+
+    tickers = [t.strip() for t in args.tickers.split(",")]
+
+    provider = "yfinance" if args.mode == "backtest" else "live"
+    manager = DataManager(tickers=tickers, provider_type=provider)
+
+    raw_data = manager.get_data(period=args.period)
+
+    # STEP 1: ALIGN FIRST (CRITICAL V8 FIX)
+    raw_data = align_dataframes(raw_data)
+
+    # STEP 1.5: FETCH MACO PROXY (UUP - Dollar Index ETF)
+    print("Injecting Macro Context (UUP)...")
+    uup_ticker = "UUP"
+    try:
+        uup_data = manager.provider.fetch(uup_ticker, period=args.period, interval="1d")
+        uup_series = uup_data["Close"]
+        uup_slope = uup_series.pct_change().rolling(20).mean()
+    except Exception as e:
+        print(f"Warning: Could not fetch UUP: {e}. Defaulting macro features to 0.")
+        uup_series = None
+        uup_slope = None
+
+    # STEP 2: FEATURES + REGIME
+    processed_data = {}
+    regime_model = RegimeDetector()
+
+    for ticker, df in raw_data.items():
+        fe = FeatureEngineer(df)
+        fe.generate_features()
+        fe.add_macro_features(uup_slope)
+        
+        # New: Add direct correlation with UUP (using fe.df which has Returns)
+        if uup_series is not None:
+            aligned_uup = uup_series.reindex(fe.df.index).ffill()
+            fe.df["UUP_Corr_60"] = fe.df["Returns"].rolling(60).corr(aligned_uup.pct_change())
+        else:
+            fe.df["UUP_Corr_60"] = 0.0
+
+        processed_data[ticker] = fe.df
+
+    # regime fitting per asset
+    for t in processed_data:
+        processed_data[t] = regime_model.fit_predict(processed_data[t])
+
+    # STEP 3: MODEL
+    model, feature_cols = train_model(processed_data)
+
+    # STEP 4: RISK
     risk_manager = ForexRiskManager(risk_per_trade=args.risk_per_trade)
 
+    # STEP 5: EXECUTION
     if args.optimize:
-        import numpy as np
-        print("\n" + "=" * 50)
-        print("RUNNING MULTI-ASSET WALK-FORWARD OPTIMIZATION (WFO)")
-        print("=" * 50)
-        # Use full portfolio map for WFO
-        optimizer = WalkForwardOptimizer(processed_data, n_folds=5, risk_manager=risk_manager)
-        fold_reports, oos_returns = optimizer.run(feature_cols)
-        
-        print(f"{'Fold':<6} | {'IS Acc':<8} | {'OOS Acc':<8} | {'Signals':<8} | {'Sharpe':<8}")
-        print("-" * 55)
-        for fold in fold_reports:
-            sharpe = float(fold['OOS_Sharpe']) if fold['OOS_Sharpe'] is not None else 0.0
-            print(f"{fold['Fold']:<6} | {fold['IS_Acc']:<8} | {fold['OOS_Acc']:<8} | {fold['Signal_Count']:<8} | {sharpe:<8.2f}")
-        
-        # Use OOS returns for stress testing if requested
-        portfolio_res = pd.DataFrame({'Strategy_Return': oos_returns})
-        metrics = {'Walk-Forward Sharpe': (oos_returns.mean() / oos_returns.std() * np.sqrt(252)) if oos_returns.std() != 0 else 0}
-    
-    elif args.mode == 'backtest':
-        # 6. Portfolio Backtest
-        backtester = MultiAssetBacktester(signaled_data, risk_manager=risk_manager)
-        portfolio_res = backtester.run()
-        metrics = backtester.calculate_metrics()
+        optimizer = WalkForwardOptimizer(
+            processed_data,
+            risk_manager=risk_manager,
+            tail_risk_penalty=args.tail_risk_penalty,
+            regime_gating_threshold=args.regime_gating,
+        )
 
-        # 7. Generate Research Dashboard
-        dashboard = DashboardGenerator(tickers[0], signaled_data[tickers[0]], metrics, feature_cols=feature_cols)
-        dashboard.generate()
+        reports, oos = optimizer.run(feature_cols)
 
-        print("\n" + "=" * 50)
-        print("PORTFOLIO BACKTEST RESULTS (FOREX)")
-        print("=" * 50)
+        print("\nWFO COMPLETE")
+        for r in reports:
+            print(r)
+
+    elif args.mode == "backtest":
+        results, metrics, signaled = run_backtest(
+            model,
+            processed_data,
+            feature_cols,
+            risk_manager,
+            args,
+        )
+
+        print("\nBACKTEST RESULTS")
+        print("=" * 40)
         for k, v in metrics.items():
             print(f"{k}: {v}")
-            
-        if args.stress_test:
-            print("\n" + "=" * 50)
-            print("INSTITUTIONAL STRESS TEST RESULTS")
-            print("=" * 50)
-            tester = StressTester(portfolio_res['Strategy_Return'])
-            
-            # Monte Carlo
-            mc_res = tester.run_monte_carlo(n_sims=5000)
-            print(f"MC Mean Equity: ${mc_res['mc_mean_equity']:,.2f}")
-            print(f"MC 5th Percentile (Value at Risk): ${mc_res['mc_5th_percentile']:,.2f}")
-            print(f"Prob of Portfolio Loss: {mc_res['prob_of_loss']:.1%}")
-            
-            # Deflated Sharpe
-            dsr_res = tester.calculate_deflated_sharpe(n_trials=100)
-            print(f"Observed Sharpe: {dsr_res['observed_sharpe']:.2f}")
-            print(f"DSR Significance Threshold: {dsr_res['dsr_threshold']:.2f}")
-            print(f"Statistically Significant: {dsr_res['is_statistically_significant']}")
-            
-            # VaR
-            var_95 = tester.calculate_var(0.95)
-            print(f"1-Day VaR (95%): ${abs(var_95):,.2f}")
-    
-    elif args.mode == 'live':
-        # 6. Live Signal Generation
-        print("\n" + "=" * 50)
-        print("GENERATING LIVE EXECUTION TICKETS")
-        print("=" * 50)
-        
-        # Initialize ZeroMQ Bridge
-        publisher = SignalPublisher()
-        
-        live_engine = LiveSignalEngine(risk_manager)
-        tickets = live_engine.generate_tickets(signaled_data)
-        summary = live_engine.get_portfolio_summary(tickets, signaled_data)
-        
-        # Publish to C++ Engine
-        publisher.publish_tickets(tickets)
-        
-        # 7. Generate Live Dashboard
-        dashboard = DashboardGenerator(tickers[0], signaled_data[tickers[0]], {}, feature_cols=feature_cols)
-        dashboard.generate_live_dashboard(tickets, summary, tickers_count=len(signaled_data))
-        
-        print(f"Active Signals: {summary['active_signals']}")
-        print(f"Portfolio Volatility: {summary['portfolio_vol']}")
-        print(f"Total Exposure: {summary['total_exposure_lots']} Lots")
-        print("\nLive Dashboard Ready!")
-        
-        import time
-        time.sleep(1) # Final flush for ZMQ
-        publisher.close()
 
-    print("\nPipeline Complete!")
+        if args.stress_test:
+            from stress_test import StressTester
+
+            tester = StressTester(results["Strategy_Return"])
+            mc = tester.run_monte_carlo(n_sims=5000)
+
+            print("\nSTRESS TEST")
+            print(mc)
+
+        DashboardGenerator(
+            tickers[0],
+            signaled[tickers[0]],
+            metrics,
+            feature_cols=feature_cols,
+        ).generate()
+
+    elif args.mode == "live":
+        run_live(model, processed_data, feature_cols, risk_manager)
+
+    print("\nPIPELINE COMPLETE")
+
 
 if __name__ == "__main__":
     main()
