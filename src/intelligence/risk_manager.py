@@ -62,6 +62,7 @@ class ForexRiskManager:
             # Commodities & Exotics
             'XAUUSD=X': {'spread': 2.5, 'comm': 10.0, 'swap': -2.0, 'lot_size': 100}, # Gold Spot
             'GC=F':     {'spread': 1.5, 'comm': 10.0, 'swap': 0.0, 'lot_size': 100},  # Gold Futures
+            'BTC-USD':  {'spread': 50.0, 'comm': 0.0, 'swap': -0.1, 'lot_size': 1},   # Bitcoin
 
             'DEFAULT':  {'spread': 3.0, 'comm': 10.0, 'swap': -2.0, 'lot_size': 100000}
         }
@@ -127,6 +128,7 @@ class ForexRiskManager:
 
     def get_pip_value(self, ticker):
         if "JPY" in ticker: return 0.01
+        if "BTC" in ticker or "ETH" in ticker: return 1.0
         return 0.0001
 
     def calculate_dynamic_rr(self, prob, regime_label, ticker):

@@ -10,7 +10,7 @@ TICKERS="EURUSD=X,GBPUSD=X,USDJPY=X,AUDUSD=X,USDCAD=X,NZDUSD=X,USDCHF=X,\
 EURGBP=X,EURJPY=X,GBPJPY=X,AUDJPY=X,CHFJPY=X,EURCHF=X,EURAUD=X,\
 GBPAUD=X,AUDCAD=X,NZDJPY=X,EURCAD=X,GBPCAD=X,AUDNZD=X,CADJPY=X,\
 EURNZD=X,GBPNZD=X,GBPCHF=X,CADCHF=X,NZDCAD=X,NZDCHF=X,AUDCHF=X,\
-GC=F"
+GC=F,BTC-USD"
 
 set -euo pipefail
 
@@ -53,7 +53,7 @@ done
 
 # 3. Launch the Monitor
 echo "=============================================================================="
-echo " LAUNCHING FULL PORTFOLIO MONITOR (34 ASSETS) "
+echo " LAUNCHING FULL PORTFOLIO MONITOR (30 ASSETS) "
 echo "=============================================================================="
 python src/intelligence/main.py --mode live --threshold 55 --tickers "$TICKERS"
 
